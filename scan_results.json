@@ -1,0 +1,56 @@
+{
+  "scan_info": {
+    "timestamp": "2025-12-28T01:09:33.860994",
+    "total_urls": 9,
+    "scanned": 6,
+    "vulnerable": 0,
+    "safe": 5,
+    "excluded": 3,
+    "errors": 1,
+    "elapsed_seconds": 0
+  },
+  "results": [
+    {
+      "url": "http://shop.example.com/item.aspx?product_id=123",
+      "verdict": "ERROR",
+      "risk": "Error",
+      "details": "Failed to connect: HTTPConnectionPool(host='shop.example.com', port=80): Max retries exceeded with url: /item.aspx?product_id=123 (Caused by NameResolutionError(\"<urllib3.connection.HTTPConnection object at 0x00000209568C5950>: Failed to resolve 'shop.example.com' ([Errno 11001] getaddrinfo failed)\"))",
+      "timestamp": "2025-12-28T01:09:33.575756"
+    },
+    {
+      "url": "http://example.com/product.php?id=1",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T01:09:33.574061"
+    },
+    {
+      "url": "http://example.com/category.php?cat=electronics",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T01:09:33.575122"
+    },
+    {
+      "url": "http://example.com/search.php?query=test",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T01:09:33.650070"
+    },
+    {
+      "url": "http://example.com/account.php?uid=10",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T01:09:33.725892"
+    },
+    {
+      "url": "http://example.com/profile.php?user_id=5",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T01:09:33.698204"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Example URL list for SQLi Scanner
+# Lines starting with # are comments and will be ignored
+
+# E-commerce endpoints
+http://example.com/product.php?id=1
+http://example.com/category.php?cat=electronics
+http://shop.example.com/item.aspx?product_id=123
+
+# Search functionality
+http://example.com/search.php?query=test
+http://example.com/find.jsp?s=keyword
+
+# User profiles
+http://example.com/profile.php?user_id=5
+http://example.com/account.php?uid=10
+
+# Static files (will be auto-skipped)
+http://example.com/style.css
+http://example.com/logo.png

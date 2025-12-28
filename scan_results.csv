@@ -1,0 +1,7 @@
+url,verdict,risk,details
+http://shop.example.com/item.aspx?product_id=123,ERROR,Error,"Failed to connect: HTTPConnectionPool(host='shop.example.com', port=80): Max retries exceeded with url: /item.aspx?product_id=123 (Caused by NameResolutionError(""<urllib3.connection.HTTPConnection object at 0x00000209568C5950>: Failed to resolve 'shop.example.com' ([Errno 11001] getaddrinfo failed)""))"
+http://example.com/product.php?id=1,SAFE,Low,No obvious SQLi behavior detected
+http://example.com/category.php?cat=electronics,SAFE,Low,No obvious SQLi behavior detected
+http://example.com/search.php?query=test,SAFE,Low,No obvious SQLi behavior detected
+http://example.com/account.php?uid=10,SAFE,Low,No obvious SQLi behavior detected
+http://example.com/profile.php?user_id=5,SAFE,Low,No obvious SQLi behavior detected

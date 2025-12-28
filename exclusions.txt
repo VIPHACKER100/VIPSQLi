@@ -1,0 +1,1342 @@
+# Exclusion patterns for SQLi Scanner
+# URLs containing these patterns will be skipped
+# Lines starting with # are comments
+
+# Exclude all static assets paths
+/wp-content/
+/assets/
+/static/
+/media/
+/images/
+/img/
+/css/
+/js/
+/fonts/
+/downloads/
+/uploads/
+
+# Exclude specific file types - Images
+.css
+.js
+.png
+.jpg
+.jpeg
+.gif
+.svg
+.ico
+.webp
+.bmp
+.tiff
+
+# Exclude specific file types - Media
+.mp4
+.mp3
+.avi
+.mov
+.wmv
+.flv
+.webm
+.wav
+.ogg
+
+# Exclude specific file types - Documents
+.pdf
+.doc
+.docx
+.xls
+.xlsx
+.ppt
+.pptx
+.zip
+.rar
+.tar
+.gz
+
+# Exclude specific file types - Fonts
+.woff
+.woff2
+.ttf
+.eot
+.otf
+
+# Exclude specific domains or paths
+logout
+signout
+/admin/css/
+/admin/js/
+/admin/fonts/
+/admin/images/
+
+# Exclude common CMS paths
+/wp-admin/
+/wp-includes/
+/wp-json/
+/xmlrpc.php
+/administrator/
+/components/
+/modules/
+/templates/
+/plugins/
+/themes/
+
+# Exclude framework-specific paths
+/node_modules/
+/vendor/
+/.git/
+/.svn/
+/bower_components/
+
+# Exclude CDN and external resources
+cdn.
+cloudflare.
+googleapis.com
+gstatic.com
+bootstrapcdn.com
+cloudfront.net
+jsdelivr.net
+
+# Exclude API documentation
+/api/docs
+/swagger
+/api-docs
+/graphql
+
+# Exclude tracking parameters
+utm_source
+utm_medium
+utm_campaign
+utm_term
+utm_content
+fbclid
+gclid
+msclkid
+_ga
+_gid
+ref
+referrer
+
+# Exclude common non-vulnerable endpoints
+/favicon.ico
+/robots.txt
+/sitemap.xml
+/manifest.json
+/.well-known/
+
+# ============================================
+# ENHANCED EXCLUSION PATTERNS FOR SQLi SCANNER
+# ============================================
+
+# ============================================
+# STATIC ASSETS AND RESOURCES
+# ============================================
+
+# Additional static asset directories
+/public/
+/shared/
+/common/
+/include/
+/inc/
+/lib/
+/libraries/
+/scripts/
+/styles/
+/theme/
+/skins/
+/temp/
+/tmp/
+/cache/
+/session/
+/sessions/
+/token/
+/tokens/
+/auth/
+/oauth/
+/openid/
+/saml/
+/jwt/
+
+# Additional static file extensions
+.webmanifest
+.map
+.jsonld
+.woff2
+.ttc
+.pfb
+.pfm
+.afm
+.dfont
+.sfd
+.ufo
+.eot
+.otc
+.odttf
+.ttx
+.afm
+.pfm
+
+# Media files
+.m4a
+.m4v
+.flac
+.aac
+.midi
+.mka
+.opus
+.spx
+.wma
+.asf
+.mkv
+.3gp
+.3g2
+.mxf
+.mts
+.m2ts
+.vob
+.dv
+.dvi
+.yuv
+.cin
+.dpx
+.exr
+
+# Document files
+.epub
+.mobi
+.azw
+.azw3
+.ibooks
+.pdb
+.prc
+.lit
+.fb2
+.djvu
+.djvu
+.oxps
+.xps
+.sxw
+.odt
+.ods
+.odp
+.odg
+.odf
+.pages
+.numbers
+.key
+.ica
+.crdownload
+.part
+
+# Archive and compressed files
+.7z
+.bz2
+.tgz
+.txz
+.lz
+.lzma
+.lzo
+.sz
+.xz
+.z
+.Z
+.zipx
+.cab
+.iso
+.img
+.dmg
+.tox
+.nrg
+.udf
+.cso
+.ecm
+.wim
+.swm
+.esd
+.vhd
+.vhdx
+.vmdk
+.vdi
+.qcow2
+.vcd
+
+# Executable and binary files
+.exe
+.msi
+.bin
+.app
+.apk
+.deb
+.rpm
+.dmg
+.pkg
+.run
+.sh
+.bash
+.zsh
+.ksh
+.csh
+.tcsh
+.fish
+.bat
+.cmd
+.vbs
+.vbe
+.js
+.jse
+.wsf
+.wsh
+.ps1
+.psm1
+.psd1
+.ps1xml
+.jar
+.class
+.so
+.dll
+.dylib
+.sys
+.o
+.obj
+.ko
+.elf
+.com
+.scr
+.pif
+.gadget
+.msc
+.msp
+.msu
+.mspx
+.msix
+.msixbundle
+.appx
+.appxbundle
+.xap
+.xpi
+.crx
+.safariextz
+.nexe
+.pexe
+.macho
+.dylib
+.bundle
+.framework
+.kext
+
+# ============================================
+# CMS AND FRAMEWORK SPECIFIC
+# ============================================
+
+# Additional CMS paths
+/joomla/
+/drupal/
+/magento/
+/umbraco/
+/sitecore/
+/craft/
+/concrete5/
+/typo3/
+/prestashop/
+/opencart/
+/liferay/
+/hubspot/
+/squarespace/
+/weebly/
+/wix/
+/shopify/
+/bigcommerce/
+/ecwid/
+/volusion/
+/zen-cart/
+/oscommerce/
+/virtuemart/
+/abantecart/
+/xcart/
+/loaded7/
+/opencartmax/
+/cubecart/
+/cs-cart/
+
+# Framework build/output directories
+/build/
+/dist/
+/out/
+/.next/
+/.nuxt/
+/.svelte-kit/
+/.astro/
+/.gatsby/
+/.hexo/
+/.hugo/
+/.jekyll/
+/.middleman/
+/.brunch/
+/.parcel-cache/
+/.cache/
+/.output/
+/.vuepress/
+/.docusaurus/
+/.gridsome/
+/.quasar/
+/.sapper/
+
+# Package and dependency directories
+/composer/
+/.gradle/
+/.mvn/
+/target/
+/.idea/
+/.vscode/
+/.settings/
+/.project/
+/.classpath/
+/.factorypath/
+/.springBeans
+
+# ============================================
+# ADMINISTRATIVE AND LOGOUT PATHS
+# ============================================
+
+# Additional logout/session termination paths
+/logoff
+/exit
+/quit
+/bye
+/sign-off
+/disconnect
+/close
+/end
+/terminate
+/destroy
+/logmeout
+/endsession
+/killsession
+/sessionend
+/sessiondestroy
+
+# Administrative interface paths
+/phpmyadmin/
+/myadmin/
+/adminer/
+/sqliteadmin/
+/phppgadmin/
+/webmin/
+/usermin/
+/cpanel/
+/whm/
+/plesk/
+/directadmin/
+/webmail/
+/roundcube/
+/squirrelmail/
+/horde/
+/rainloop/
+/afterlogic/
+/owa/
+/ecp/
+
+# ============================================
+# API AND WEB SERVICE PATTERNS
+# ============================================
+
+# API documentation paths
+/redoc
+/openapi
+/rapidoc
+/api-documentation
+/api-explorer
+/api-console
+/api-playground
+/graphiql
+/graphql-playground
+/altair
+/voyager
+/hasura-console
+/prisma-studio
+/adminer
+/pgadmin
+/mysql-admin
+
+# Web service files
+/asmx
+/asp
+/asm
+/ashx
+/axd
+/remoting
+/webservice
+/ws
+/wss
+/svc
+/ashx
+/axd
+
+# API versioning patterns
+/api/v1/
+/api/v2/
+/api/v3/
+/v1/api/
+/v2/api/
+/v3/api/
+/rest/v1/
+/rest/v2/
+/rest/v3/
+/json/v1/
+/json/v2/
+/json/v3/
+
+# ============================================
+# TRACKING AND ANALYTICS
+# ============================================
+
+# Additional tracking parameters
+_gl
+__twitter_impression
+_yhash
+_yhashr
+_ym_uid
+_ym_d
+_ym_isad
+_ym_retargeting
+_ym_metrika
+_ym_pr
+_pin_unauth
+_pinterest_sess
+_rdt_uuid
+_schn
+_scid
+_sonar
+_sp_id
+_sp_ses
+_suid
+_svid
+_tt_enable_cookie
+_ttp
+_twitter_sess
+_vwo_uuid
+_vwo_ds
+_widget_session
+_zs
+_zts
+_zm
+_zp
+_zs
+_zt
+_zc
+_zk
+_zl
+_zr
+_zq
+_zx
+_zy
+_zz
+
+# Analytics endpoints
+/analytics
+/metrics
+/stats
+/statistics
+/telemetry
+/beacon
+/pixel
+/track
+/tracking
+/monitoring
+/observability
+
+# ============================================
+# NON-VULNERABLE ENDPOINTS
+# ============================================
+
+# Informational endpoints
+/humans.txt
+/ads.txt
+/app-ads.txt
+/security.txt
+/.well-known/security.txt
+/legal.txt
+/privacy.txt
+/terms.txt
+/cookie-policy.txt
+/disclaimer.txt
+/license.txt
+/credits.txt
+/changelog.txt
+/version.txt
+
+# Status and health checks
+/status
+/health
+/ready
+/live
+/alive
+/dead
+/check
+/test
+/ping
+/pong
+/up
+/down
+/healthz
+/readyz
+/livez
+/metrics
+/actuator/health
+/actuator/info
+/actuator/metrics
+
+# Error pages
+/error
+/404
+/500
+/502
+/503
+/504
+/maintenance
+/offline
+/under-construction
+/coming-soon
+/construction
+
+# ============================================
+# DEVELOPMENT AND DEBUGGING
+# ============================================
+
+# Development paths
+/debug
+/debugger
+/inspect
+/inspector
+/console
+/devtools
+/developer
+/develop
+/development
+/experiment
+/experimental
+/alpha
+/beta
+/canary
+/rc
+/preview
+/demo
+/sample
+/example
+/playground
+/sandbox
+/lab
+/laboratory
+/research
+/explore
+
+# Debugging endpoints
+/phpinfo
+/info.php
+/test.php
+/debug.php
+/status.php
+/xdebug
+/tracy
+/tracy-debug
+/blackfire
+/tideways
+/webgrind
+/xhprof
+/kcachegrind
+/callgrind
+/valgrind
+/gprof
+/perf
+/strace
+/ltrace
+/dtrace
+/sysdig
+
+# ============================================
+# SECURITY AND AUTHENTICATION
+# ============================================
+
+# Security headers verification
+/.well-known/apple-app-site-association
+/.well-known/assetlinks.json
+/.well-known/oauth-authorization-server
+/.well-known/openid-configuration
+/.well-known/webfinger
+/.well-known/host-meta
+/.well-known/host-meta.json
+/.well-known/change-password
+/.well-known/security.txt
+
+# Authentication flows
+/.well-known/oauth-authorization-server
+/.well-known/openid-configuration
+/oauth/authorize
+/oauth/token
+/oauth/revoke
+/oauth/introspect
+/oauth/userinfo
+/openid/connect
+/saml/login
+/saml/logout
+/saml/metadata
+/saml/acs
+/saml/sls
+/cas/login
+/cas/logout
+/cas/validate
+/cas/serviceValidate
+/cas/proxyValidate
+/cas/proxy
+
+# ============================================
+# FILE UPLOAD AND DOWNLOAD
+# ============================================
+
+# File operations paths
+/attach
+/attachment
+/attachments
+/download
+/downloads
+/upload
+/uploads
+/import
+/export
+/backup
+/backups
+/archive
+/archives
+/restore
+/restores
+/recovery
+/recoveries
+/dump
+/dumps
+/export
+/exports
+/import
+/imports
+
+# Cloud storage and CDN
+/blob
+/blobs
+/object
+/objects
+/bucket
+/buckets
+/storage
+/cdn
+/cdn-cgi
+/cloudstorage
+/s3
+/azureblob
+/gcs
+/cloudfront
+/akamai
+/fastly
+
+# ============================================
+# E-COMMERCE AND PAYMENT
+# ============================================
+
+# Shopping and payment paths
+/cart
+/basket
+/checkout
+/payment
+/payments
+/invoice
+/invoices
+/order
+/orders
+/purchase
+/purchases
+/buy
+/sell
+/sale
+/sales
+/price
+/prices
+/cost
+/costs
+/fee
+/fees
+/bill
+/bills
+/account
+/accounts
+/wallet
+/wallets
+/purse
+/purses
+
+# Payment gateway callbacks
+/paypal
+/stripe
+/square
+/braintree
+/authorize
+/2checkout
+/pay
+/paytm
+/razorpay
+/mollie
+/adyen
+/worldpay
+/sagepay
+/opayo
+/klarna
+/afterpay
+/clearpay
+/affirm
+/sezzle
+
+# ============================================
+# SOCIAL MEDIA AND SHARING
+# ============================================
+
+# Social media integration
+/share
+/shares
+/like
+/likes
+/dislike
+/dislikes
+/upvote
+/upvotes
+/downvote
+/downvotes
+/vote
+/votes
+/rate
+/rates
+/rating
+/ratings
+/comment
+/comments
+/review
+/reviews
+/testimonial
+/testimonials
+/endorsement
+/endorsements
+
+# Social media widgets
+/facebook
+/twitter
+/linkedin
+/instagram
+/pinterest
+/youtube
+/tiktok
+/snapchat
+/reddit
+/tumblr
+/flickr
+/vimeo
+/dailymotion
+/twitch
+/discord
+/slack
+/telegram
+/whatsapp
+/signal
+/wechat
+/line
+/viber
+/kakao
+/naver
+
+# ============================================
+# SEARCH AND DISCOVERY
+# ============================================
+
+# Search functionality
+/search
+/find
+/query
+/lookup
+/browse
+/explore
+/navigate
+/navigation
+/menu
+/sitemap
+/toc
+/index
+
+# Search engine paths
+/google
+/bing
+/yahoo
+/duckduckgo
+/baidu
+/yandex
+/ecosia
+/startpage
+/qwant
+/swisscows
+/metager
+/searx
+/wiby
+/mojeek
+
+# ============================================
+# INTERNATIONALIZATION
+# ============================================
+
+# Language and localization
+/locale
+/language
+/translation
+/i18n
+/l10n
+/en/
+/es/
+/fr/
+/de/
+/it/
+/pt/
+/ru/
+/zh/
+/ja/
+/ko/
+/ar/
+/hi/
+
+# Regional paths
+/us/
+/uk/
+/eu/
+/apac/
+/emea/
+/americas/
+/europe/
+/asia/
+/africa/
+/australia/
+
+# ============================================
+# MOBILE AND APP SPECIFIC
+# ============================================
+
+# Mobile app paths
+/mobile
+/app
+/application
+/native
+/hybrid
+/pwa
+/amp
+/m.
+/wap
+/xhtml
+/j2me
+/blackberry
+/symbian
+/windowsphone
+/android
+/ios
+/iphone
+/ipad
+/ipod
+/kindle
+/nook
+/kobo
+
+# App store deep links
+/appstore
+/playstore
+/googleplay
+/itunes
+/microsoft-store
+/app-gallery
+/galaxy-store
+/amazon-appstore
+/f-droid
+/apkpure
+/aptoide
+/getjar
+
+# ============================================
+# ACCESSIBILITY
+# ============================================
+
+# Accessibility features
+/accessibility
+/a11y
+/aria
+/screen-reader
+/braille
+/large-print
+/high-contrast
+/dyslexia
+/captions
+/transcript
+/audio-description
+/sign-language
+/easy-read
+/plain-language
+
+# Assistive technology
+/screen-reader
+/braille-display
+/speech-synthesis
+/speech-recognition
+/eye-tracking
+/head-pointer
+/sip-and-puff
+/switch-access
+/voice-control
+
+# ============================================
+# LEGAL AND COMPLIANCE
+# ============================================
+
+# Legal compliance paths
+/gdpr
+/ccpa
+/cppa
+/pipeda
+/lgpd
+/pdpa
+/apppa
+/copa
+/coppa
+/hipaa
+/ferpa
+/glba
+/sox
+/pci
+/iso
+/soc
+/fisma
+/fedramp
+/nist
+/cis
+/csa
+/tisax
+
+# Compliance documentation
+/compliance
+/certification
+/accreditation
+/audit
+/assessment
+/evaluation
+/validation
+/verification
+/certificate
+/license
+/permit
+/authorization
+/clearance
+
+# ============================================
+# PERFORMANCE AND MONITORING
+# ============================================
+
+# Performance monitoring
+/performance
+/benchmark
+/load-test
+/stress-test
+/soak-test
+/spike-test
+/break-test
+/destruct-test
+/chaos-engineering
+/resilience
+/reliability
+/availability
+/uptime
+/downtime
+/mttr
+/mtbf
+/mtbsf
+/mtta
+
+# Monitoring tools
+/prometheus
+/grafana
+/kibana
+/elasticsearch
+/logstash
+/fluentd
+/splunk
+/datadog
+/newrelic
+/appdynamics
+/dynatrace
+/instana
+/lightstep
+/honeycomb
+/signalfx
+/wavefront
+
+# ============================================
+# BOTS AND CRAWLERS
+# ============================================
+
+# Bot and crawler paths
+/bot
+/crawler
+/spider
+/indexer
+/archiver
+/scraper
+/harvester
+/aggregator
+/feed
+/rss
+/atom
+/jsonfeed
+/sitemap
+/robots
+/crawl
+/index
+/archive
+
+# Known bot user agents
+googlebot
+bingbot
+slurp
+duckduckbot
+baiduspider
+yandexbot
+sogou
+exabot
+facebot
+facebookexternalhit
+twitterbot
+linkedinbot
+whatsapp
+pinterest
+applebot
+discordbot
+telegrambot
+slackbot
+alexa
+alexabot
+coccoc
+webvisor
+petalbot
+ahrefsbot
+semrushbot
+mozbot
+rogerbot
+dotbot
+gigabot
+ccbot
+netcraft
+nimbostratus
+pgator
+scanbot
+
+# ============================================
+# SECURITY SCANNERS AND TOOLS
+# ============================================
+
+# Security scanner patterns
+/acunetix
+/appscan
+/nessus
+/nexpose
+/openvas
+/nikto
+/w3af
+/wapiti
+/skipfish
+/sqlmap
+/metasploit
+/beef
+/burp
+/zap
+/arachni
+/wfuzz
+/dirb
+/dirbuster
+/gobuster
+/ffuf
+/amass
+/subfinder
+/assetfinder
+/waybackurls
+/gau
+/hakrawler
+/katana
+/nuclei
+/wpscan
+/jsql
+/havij
+/sqlsus
+/sqlninja
+/absinthe
+/bsqlbf
+/fcrackzip
+/john
+/hashcat
+/hydra
+/medusa
+/ncrack
+/patator
+
+# ============================================
+# MISCELLANEOUS EXCLUSIONS
+# ============================================
+
+# Common false positives
+/example
+/sample
+/test
+/demo
+/template
+/placeholder
+/mock
+/stub
+/fixture
+/dummy
+/fake
+/debug
+/development
+/staging
+/qa
+/preprod
+/preproduction
+/acceptance
+/integration
+
+# Temporary and transient paths
+/temp
+/tmp
+/cache
+/session
+/token
+/cookie
+/localstorage
+/sessionstorage
+/indexeddb
+/websql
+/appcache
+/serviceworker
+/sharedworker
+/webworker
+
+# WebSocket and real-time
+/ws
+/wss
+/sse
+/eventsource
+/webpush
+/push
+/notification
+/poll
+/longpoll
+/stream
+/livestream
+/broadcast
+/multicast
+/anycast
+/unicast
+
+# ============================================
+# REGEX PATTERNS FOR ADVANCED EXCLUSION
+# ============================================
+
+# Regex patterns (use with appropriate regex engine)
+\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$
+^/static/
+^/assets/
+^/media/
+^/uploads/
+^/downloads/
+^/vendor/
+^/node_modules/
+^/bower_components/
+^/\.git/
+^/\.svn/
+^/\.hg/
+^/\.well-known/
+
+# UUID patterns
+[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}
+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}
+[0-9a-f]{32}
+[0-9a-f]{40}
+[0-9a-f]{64}
+
+# Session and token patterns
+sessionid=[a-zA-Z0-9]+
+token=[a-zA-Z0-9]+
+csrf=[a-zA-Z0-9]+
+auth=[a-zA-Z0-9]+
+jwt=[a-zA-Z0-9]+\.[a-zA-Z0-9]+\.[a-zA-Z0-9]+
+
+# ============================================
+# DOMAIN-SPECIFIC EXCLUSIONS
+# ============================================
+
+# Third-party domains (add as needed)
+\.google\.com
+\.googleapis\.com
+\.gstatic\.com
+\.facebook\.com
+\.fbcdn\.net
+\.twitter\.com
+\.twimg\.com
+\.youtube\.com
+\.ytimg\.com
+\.instagram\.com
+\.cdninstagram\.com
+\.linkedin\.com
+\.licdn\.com
+\.pinterest\.com
+\.pinimg\.com
+\.tiktok\.com
+\.cdn\.ampproject\.org
+\.cloudflare\.com
+\.cloudfront\.net
+\.akamai\.net
+\.fastly\.net
+\.maxcdn\.com
+\.bootstrapcdn\.com
+\.jquery\.com
+\.jsdelivr\.net
+\.unpkg\.com
+\.cdnjs\.com
+\.fontawesome\.com
+
+# CDN and asset hosts
+cdn\.
+assets\.
+static\.
+media\.
+img\.
+images\.
+video\.
+audio\.
+fonts\.
+scripts\.
+styles\.
+theme\.
+skins\.
+
+# ============================================
+# FINAL NOTES
+# ============================================
+
+# Remember to:
+# 1. Regularly update this list as new patterns emerge
+# 2. Test exclusions to ensure they don't block legitimate test targets
+# 3. Customize based on your specific testing environment
+# 4. Use regex patterns carefully to avoid over-matching
+# 5. Consider performance implications of large exclusion lists
+
+# These exclusions help:
+# - Reduce scanning time by skipping non-vulnerable paths
+# - Avoid false positives from static content
+# - Prevent session termination from logout endpoints
+# - Respect the scope of authorized testing
+# - Improve scanner efficiency and accuracy
+
+# Always verify exclusions don't exclude legitimate test targets!
+# Some administrative paths might be in-scope for testing with proper authorization.
