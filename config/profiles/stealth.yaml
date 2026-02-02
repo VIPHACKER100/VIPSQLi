@@ -1,0 +1,14 @@
+scanner:
+  threads: 1
+  timeout: 20
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+detection:
+  time_based_enabled: false
+  ml_enabled: true
+  ml_threshold: 0.85
+
+rate_limiting:
+  enabled: true
+  requests_per_second: 1
+  adaptive: true

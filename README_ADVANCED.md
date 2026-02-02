@@ -1,4 +1,4 @@
-# 🔥 VIP SQLi Scanner - Advanced Edition v2.1
+# 🔥 VIP SQLi Scanner - Advanced Edition v2.2
 
 **Professional SQL Injection Triage Tool with Modern UI**
 
@@ -62,6 +62,24 @@ A next-generation SQLi detection tool featuring beautiful terminal UI, multi-thr
 ### 🛡️ Operational Security
 - **Proxy Support** - Rotate proxies or use a single upstream proxy (Burp/Zap)
 - **Custom Headers** - Inject Authentication tokens/cookies for authenticated scanning
+
+## 🚀 New in Version 2.2
+
+### 🧠 ML-Powered Detection
+- **Random Forest Engine** - Reduces false positives by analyzing 20+ features.
+- **Hybrid Scanning** - Combines traditional signatures with ML predictions.
+- **Training Mode** - Train custom models on your own scan data.
+
+### 🔌 Plugin Architecture
+- **Extensible System** - Easily add new detection logic via Python plugins.
+- **Built-in Plugins**:
+  - **GraphQL**: Introspection and Injection checks.
+  - **NoSQL**: MongoDB operator injection detection.
+
+### 📈 Real-Time Web Dashboard
+- **Live Visualization** - Flask + Socket.IO dashboard.
+- **Interactive Charts** - Visual breakdown of vulnerabilities.
+- **Live Logs** - Watch scan progress in real-time from your browser.
 
 ---
 
@@ -259,6 +277,34 @@ The tool will prompt you for:
 - Number of threads
 - Enable async scanning (yes/no)
 - Enable time-based detection (yes/no)
+- Enable ML detection (yes/no) (v2.2)
+- Launch Dashboard (yes/no) (v2.2)
+
+### 🧠 ML & Dashboard Commands (v2.2)
+
+**Enable ML Detection:**
+```bash
+python sqli_scanner_advanced.py -l urls.txt --ml
+```
+
+**Launch Web Dashboard:**
+```bash
+python sqli_scanner_advanced.py --dashboard
+```
+
+**Train ML Model:**
+```bash
+python sqli_scanner_advanced.py --train
+```
+
+**Scan Profiles:**
+```bash
+# Aggressive (Fast, Noisy)
+python sqli_scanner_advanced.py -l urls.txt --profile aggressive
+
+# Stealth (Slow, Quiet)
+python sqli_scanner_advanced.py -l urls.txt --profile stealth
+```
 
 ---
 
@@ -283,6 +329,10 @@ The tool will prompt you for:
 | `--proxy` | Single proxy URL | - |
 | `--headers` | Custom headers JSON file | - |
 | `--filter` | Organize results into domain folders (safeurl.txt/vulnurl.txt) | `False` |
+| `--ml` | Enable ML-based detection (v2.2) | `False` |
+| `--dashboard` | Launch Web Dashboard (v2.2) | `False` |
+| `--train` | Train ML Model (v2.2) | `False` |
+| `--profile` | Scan Profile (aggressive, balanced, stealth) | `balanced` |
 
 ---
 
