@@ -1662,7 +1662,7 @@ Examples:
     )
     
     # Target options
-    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group = parser.add_mutually_exclusive_group(required=False)
     target_group.add_argument('-u', '--url', help='Single URL to scan')
     target_group.add_argument('-l', '--list', help='File containing list of URLs')
     
@@ -1703,8 +1703,49 @@ Examples:
     # Misc options
     parser.add_argument('--no-color', action='store_true', help='Disable colored output')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('-i', '--interactive', action='store_true', help='Interactive mode walkthrough')
     
     args = parser.parse_args()
+
+    # Manual validation for required target unless interactive
+    if not (args.url or args.list or args.interactive):
+        parser.error("one of the arguments -u/--url, -l/--list or -i/--interactive is required")
+
+    # Interactive walkthrough
+    if args.interactive:
+        console.print("\n[bold cyan]🎨 VIP SQLi Scanner - Interactive Setup[/bold cyan]\n")
+        
+        # Target Selection
+        target_choice = Prompt.ask("Choose input type", choices=["Single URL", "URL List"], default="Single URL")
+        if target_choice == "Single URL":
+            args.url = Prompt.ask("Enter target URL")
+            while not args.url:
+                args.url = Prompt.ask("Enter target URL")
+        else:
+            args.list = Prompt.ask("Enter path to your list file (e.g., urls.txt)")
+            while not args.list or not os.path.exists(args.list):
+                if args.list:
+                    console.print(f"[red]✗[/red] File '{args.list}' not found.")
+                args.list = Prompt.ask("Enter valid path to list file")
+
+        # Scan Mode
+        args.mode = Prompt.ask("Select scan mode", choices=['fast', 'balanced', 'deep', 'stealth'], default='balanced')
+        
+        # Threads
+        args.threads = int(Prompt.ask("Number of threads", default="15"))
+        
+        # Detection Capabilities
+        args.boolean = Confirm.ask("Enable Boolean-Based Blind detection?", default=True)
+        args.ml = Confirm.ask("Enable ML-Powered scoring?", default=True)
+        args.time_based = Confirm.ask("Enable Time-Based Blind detection? (Slower)", default=False)
+        
+        # Exporting
+        if Confirm.ask("Generate HTML Report?", default=True):
+            args.html = Prompt.ask("Enter filename for HTML report", default="report.html")
+            if not args.html.endswith('.html'):
+                args.html += '.html'
+        
+        console.print("\n[green]✓ Setup complete! Launching scan...[/green]\n")
     
     # Disable color if requested
     if args.no_color:
