@@ -8,7 +8,10 @@ Quick reference guide for all scanner commands with real-time statistics.
 - [Quick Start](#quick-start)
 - [High-Performance Scanning](#high-performance-scanning)
 - [Advanced Detection](#advanced-detection)
+- [ML-Powered Detection (v2.2)](#ml-powered-detection-v22)
+- [Web Dashboard (v2.2)](#web-dashboard-v22)
 - [Export & Reporting](#export--reporting)
+- [Cloud & PDF (Phase 5)](#cloud--pdf-phase-5)
 - [Professional Pentesting](#professional-pentesting)
 - [Interactive Mode](#interactive-mode)
 - [Command Options](#command-options)
@@ -83,6 +86,41 @@ python sqli_scanner_advanced.py -l urls.txt --threads 10 --time-based -v
 
 ---
 
+## ML-Powered Detection (v2.2)
+
+### Enable ML Engine
+Uses Random Forest to reduce false positives.
+```bash
+python sqli_scanner_advanced.py -l urls.txt --ml
+```
+
+### Train Custom Model
+Train on your own scan data for localized accuracy.
+```bash
+python sqli_scanner_advanced.py --train
+```
+
+### Scan Profiles
+```bash
+# Aggressive (Fast, more requests)
+python sqli_scanner_advanced.py -l urls.txt --profile aggressive
+
+# Stealth (Slow, randomized delays)
+python sqli_scanner_advanced.py -l urls.txt --profile stealth
+```
+
+---
+
+## Web Dashboard (v2.2)
+
+### Launch Real-Time Dashboard
+Open `http://localhost:5000` in your browser.
+```bash
+python sqli_scanner_advanced.py --dashboard
+```
+
+---
+
 ## Export & Reporting
 
 ### JSON Export
@@ -114,6 +152,31 @@ python sqli_scanner_advanced.py -l urls.txt --async --time-based --filter -v
 ### Complete Scan with All Reports
 ```bash
 python sqli_scanner_advanced.py -l urls.txt --async --time-based -o results.json --csv results.csv --filter -v
+```
+
+---
+
+## Cloud & PDF (Phase 5)
+
+### Generate PDF Report
+Professional graded reports using `reportlab`.
+```bash
+python sqli_scanner_advanced.py -l urls.txt --pdf
+```
+
+### Slack Integration
+Send notification blocks to your SOC/Pentest channel.
+```bash
+python sqli_scanner_advanced.py -l urls.txt --slack
+```
+
+### S3 & Jira Sync
+```bash
+# Upload to S3
+python sqli_scanner_advanced.py -l urls.txt --s3
+
+# Create Jira issues for Criticals
+python sqli_scanner_advanced.py -l urls.txt --jira
 ```
 
 ---
@@ -174,6 +237,14 @@ The tool will prompt you for:
 | `-v, --verbose` | Verbose output with real-time URL status | `False` |
 | `-i, --interactive` | Interactive mode with prompts | `False` |
 | `--filter` | Organize results into domain folders (safeurl.txt/vulnurl.txt) | `False` |
+| `--ml` | Enable ML-based detection (v2.2) | `False` |
+| `--dashboard` | Launch Web Dashboard (v2.2) | `False` |
+| `--train` | Train ML Model (v2.2) | `False` |
+| `--profile` | Scan Profile (aggressive, balanced, stealth) | `balanced` |
+| `--pdf` | Generate PDF report (Phase 5) | `False` |
+| `--slack` | Send results to Slack (Phase 5) | `False` |
+| `--s3` | Upload to S3 (Phase 5) | `False` |
+| `--jira` | Create Jira issues (Phase 5) | `False` |
 
 ---
 

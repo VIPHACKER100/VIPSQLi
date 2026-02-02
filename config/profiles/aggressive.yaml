@@ -1,0 +1,15 @@
+scanner:
+  threads: 20
+  timeout: 5
+
+detection:
+  time_based_enabled: true
+  ml_enabled: true
+  ml_threshold: 0.6
+
+rate_limiting:
+  enabled: false
+  adaptive: false
+
+plugins:
+  enabled: true

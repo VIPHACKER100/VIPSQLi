@@ -1,0 +1,41 @@
+version: "2.2"
+
+scanner:
+  threads: 5
+  timeout: 10
+  user_agent: "VIPSQLi/2.2"
+
+detection:
+  time_based_enabled: false
+  ml_enabled: false
+  ml_threshold: 0.7
+
+rate_limiting:
+  enabled: true
+  requests_per_second: 5
+  adaptive: true
+
+plugins:
+  enabled: true
+  auto_load: true
+
+cloud:
+  s3:
+    enabled: false
+    bucket: "vip-sqli-results"
+    region: "us-east-1"
+  slack:
+    enabled: false
+    token: ""
+    channel: "#scans"
+  jira:
+    enabled: false
+    server: "https://your-domain.atlassian.net"
+    email: ""
+    api_token: ""
+    project_key: "SEC"
+
+reporting:
+  pdf:
+    enabled: true
+    output_dir: "reports"

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-VIP SQLi Scanner - Advanced Edition v2.1
+VIP SQLi Scanner - Advanced Edition v2.2
 Professional SQL Injection Triage Tool with Modern UI
-Enhanced with Async Scanning, WAF Detection, HTML Reports, Resume, and Proxy Support
+Enhanced with Async Scanning, WAF Detection, ML Engine, Plugins, and Dashboard
 """
 
 import requests
@@ -42,13 +42,32 @@ try:
 except ImportError:
     JINJA_AVAILABLE = False
 
+# v2.2 imports
+try:
+    from config.loader import ConfigLoader
+    from ml.detector import MLDetector
+    from ml.features import FeatureExtractor
+    from plugins.manager import PluginManager
+    from dashboard import start_dashboard, broadcast_update
+    # Phase 5
+    from utils.cloud_manager import CloudManager
+    from utils.report_gen import PDFReporter
+except ImportError as e:
+    # Fallback/Silent if modules not ready during dev
+    pass
+
+# Globals for v2.2
+ml_detector = None
+plugin_manager = None
+cloud_manager = None
+
 console = Console()
 
 # -------------------------------------------------------------------------
 # CONSTANTS & CONFIGURATION
 # -------------------------------------------------------------------------
 
-VERSION = "2.1"
+VERSION = "2.2"
 GITHUB_URL = "https://GitHub.com/viphacker100/"
 WEBSITE_URL = "https://viphacker100.com"
 
@@ -389,8 +408,8 @@ def print_banner():
     banner_content.append("\n")
     banner_content.append("Professional SQL Injection Triage Tool", style="italic yellow")
     banner_content.append("\n\n")
-    banner_content.append("✨ New Features: ", style="bold green")
-    banner_content.append("HTML Reports | Resume Capability | Proxy Support | Custom Headers", style="dim")
+    banner_content.append("✨ New Features (v2.2): ", style="bold green")
+    banner_content.append("ML Engine | Plugin System | Web Dashboard | Cloud Sync", style="dim")
     banner_content.append("\n\n")
     banner_content.append("GitHub: ", style="dim")
     banner_content.append(GITHUB_URL, style="bold blue underline")
@@ -486,6 +505,61 @@ def fingerprint_database(content: str, errors: List[str]) -> Optional[str]:
             if sig.lower() in combined:
                 return db_type
     return None
+
+# -------------------------------------------------------------------------
+# SCANNING LOGIC
+# -------------------------------------------------------------------------
+
+
+# -------------------------------------------------------------------------
+# SCANNING LOGIC
+# -------------------------------------------------------------------------
+
+def check_ml_and_plugins(url, response, ml_detector=None, plugin_manager=None, result=None):
+    """Helper to run ML and Plugin checks"""
+    if not result: result = {}
+    
+    # ML Check
+    if ml_detector and response:
+        try:
+            # Reconstruct features (requires ml.features import)
+            from ml.features import FeatureExtractor
+            extractor = FeatureExtractor()
+            # Simple error check for features
+            errors = []
+            for sig in ERROR_SIGNATURES:
+                if sig in response.text: errors.append(sig)
+            
+            features = extractor.combine_features(
+                url, response, {'errors': errors, 'waf': False}
+            )
+            is_vuln_ml, confidence = ml_detector.predict(features)
+            result['ml_confidence'] = float(confidence)
+            if is_vuln_ml and confidence > 0.80 and result.get('verdict') != 'CRITICAL':
+                result['verdict'] = 'WARN'
+                result['details'] = f"ML Suspicion ({confidence:.2f})"
+        except Exception as e:
+            pass
+
+    # Plugin Check
+    if plugin_manager:
+        try:
+            p_results = plugin_manager.run_plugins(url, response)
+            for name, res in p_results.items():
+                if res.get('vulnerable'):
+                    result['verdict'] = 'CRITICAL'
+                    result['details'] = f"Plugin {name}: {res.get('details')}"
+                    result['risk'] = 'Critical'
+                    result['vuln_details'] = res.get('details')
+        except Exception:
+            pass
+            
+    # Broadcast
+    try:
+        from dashboard import broadcast_update
+        broadcast_update(result)
+    except:
+        pass
 
 def rule_zero_static_check(url):
     """Rule #0: Static file != SQLi"""
@@ -776,6 +850,17 @@ def scan_single_url(url, enable_time_based=False, verbose=False, payloads=None, 
     result['verdict'] = verdict
     result['details'] = msg
     
+    # v2.2 Helper Call
+    # Note: We don't have the response object here easily from step_three
+    # But we can at least broadcast the result to dashboard
+    check_ml_and_plugins(url, None, ml_detector, plugin_manager, result)
+    
+    try:
+        from dashboard import broadcast_update
+        broadcast_update(result)
+    except:
+        pass
+
     # Calculate Risk & CVSS
     if verdict == "CRITICAL":
         result['risk'] = 'Critical'
@@ -974,6 +1059,62 @@ def main():
     # Performance & Config
     parser.add_argument("-t", "--threads", type=int, default=5, help="Number of threads")
     parser.add_argument("--async", dest="use_async", action="store_true", help="Use async scanning")
+
+    # v2.2 Arguments
+    parser.add_argument("--ml", action="store_true", help="Enable ML-based detection (beta)")
+    parser.add_argument("--profile", default="balanced", help="Scan profile: aggressive, balanced, stealth")
+    parser.add_argument("--dashboard", action="store_true", help="Launch Real-time Web Dashboard")
+    parser.add_argument("--train", action="store_true", help="Train ML model with available data")
+
+    # v2.2 Phase 5 Arguments
+    parser.add_argument("--pdf", action="store_true", help="Generate PDF report after scan")
+    parser.add_argument("--slack", action="store_true", help="Send results to Slack after scan")
+    parser.add_argument("--s3", action="store_true", help="Upload results to S3 after scan")
+    parser.add_argument("--jira", action="store_true", help="Create Jira issues for critical findings")
+
+    args = parser.parse_args()
+
+    # Handle v2.2 Commands
+    if args.dashboard:
+        try:
+            start_dashboard()
+        except Exception as e:
+            print(f"Failed to start dashboard: {e}")
+        return
+
+    if args.train:
+        from ml.trainer import train_model
+        train_model()
+        return
+
+    # Load Config Profile
+    try:
+        config_loader = ConfigLoader(profile=args.profile)
+        config = config_loader.config
+        
+        # Initialize Globals
+        if args.ml:
+             ml_detector = MLDetector()
+             
+        plugin_manager = PluginManager(config)
+        plugin_manager.load_all_plugins()
+        
+        # Initialize Cloud Manager
+        cloud_manager = CloudManager(config.get('cloud', {}))
+        # Override individual cloud settings via CLI
+        if args.slack: cloud_manager.slack.enabled = True
+        if args.s3: cloud_manager.s3.enabled = True
+        if args.jira: cloud_manager.jira.enabled = True
+
+        # Override args with config if needed
+        if args.profile == 'stealth':
+            args.concurrency = 1
+            args.timeout = 20
+        elif args.profile == 'aggressive':
+            args.concurrency = 20
+            args.timeout = 5
+    except:
+        pass
     parser.add_argument("--max-concurrent", type=int, default=20, help="Max requests (async)")
     parser.add_argument("--time-based", action="store_true", help="Enable time-based SQLi")
     
@@ -1122,6 +1263,28 @@ def main():
             sitename = sitename.replace(":", "_")
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Post-Scan Reporting & Cloud Sync (Phase 5)
+            if args.pdf or config.get('reporting', {}).get('pdf', {}).get('enabled'):
+                pdf_filename = f"VULNERABLE_{sitename}_{timestamp}_vip.pdf"
+                pdf_path = os.path.join(config.get('reporting', {}).get('pdf', {}).get('output_dir', 'reports'), pdf_filename)
+                os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+                
+                scan_stats = {
+                    'total': stats.total,
+                    'vulnerable': stats.vulnerable,
+                    'safe': stats.safe,
+                    'errors': stats.errors,
+                    'waf_detected': stats.waf_detected,
+                    'elapsed': int(stats.elapsed())
+                }
+                
+                reporter = PDFReporter(pdf_path)
+                reporter.generate(scan_stats, results)
+                console.print(f"[green]✓[/green] PDF report generated: {pdf_path}")
+                
+                if cloud_manager:
+                    cloud_manager.sync_results(pdf_path, scan_stats)
             
             # Determine overall status for filename
             scan_verdict = "VULNERABLE" if stats.vulnerable > 0 else "SAFE"

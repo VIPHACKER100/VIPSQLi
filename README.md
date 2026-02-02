@@ -1,4 +1,4 @@
-# 🔥 VIP SQLi Scanner - Professional Triage Tool
+# 🔥 VIP SQLi Scanner - Professional Triage Tool v2.2
 
 **REAL SQLi PEHCHANNE KA 30-SECOND FRAMEWORK**
 
@@ -52,30 +52,27 @@ Scans for **50+ SQL error patterns** across:
 # Clone or download the tool
 cd VIPSQLi
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (v2.2)
+pip install -r requirements-v2.2.txt
 ```
 
 ## 🚀 Usage
 
 ### Single URL Scan
 ```bash
-python sqli_scanner.py <URL>
+python sqli_scanner_advanced.py -u "http://example.com/product.php?id=1"
 ```
 
 ### Batch Scanning (URL List)
 ```bash
 # Scan multiple URLs from a file
-python sqli_scanner.py -l urls.txt
+python sqli_scanner_advanced.py -l urls.txt --threads 10
 
 # Scan with exclusion patterns
-python sqli_scanner.py -l urls.txt -e exclusions.txt
+python sqli_scanner_advanced.py -l urls.txt -e exclusions.txt
 
 # Save results to file
-python sqli_scanner.py -l urls.txt -o results.txt
-
-# Combine all options
-python sqli_scanner.py -l urls.txt -e exclusions.txt -o results.txt
+python sqli_scanner_advanced.py -l urls.txt -o results.json
 ```
 
 ### Command-Line Options

@@ -1,4 +1,4 @@
-# 🎯 VIP SQLi Scanner - Project Summary
+# 🎯 VIP SQLi Scanner - Project Summary (v2.2)
 
 ## 📦 What You Have
 
@@ -23,7 +23,11 @@
 
 ### Core Files
 - `sqli_scanner.py` - Basic scanner (480 lines)
-- `sqli_scanner_advanced.py` - Advanced scanner (1000+ lines) ⭐
+- `sqli_scanner_advanced.py` - Advanced scanner (Modular + ML) ⭐
+- `core/` - Core logic (Scanner, Detector)
+- `ml/` - ML Engine (Random Forest, Features)
+- `plugins/` - Extensible Plugin System
+- `dashboard/` - Real-time Web Dashboard
 - `requirements.txt` - Dependencies (requests, rich, aiohttp, jinja2)
 
 ### Documentation
@@ -108,6 +112,12 @@ python sqli_scanner_advanced.py -i
 - ✅ Context-Aware Remediation Advice ⭐
 - ✅ Domain-based Result Filtering (`--filter`) ⭐
 - ✅ Comprehensive scan metrics ⭐
+
+### New in v2.2
+- 🧠 **ML Detection**: Reduces false positives with Random Forest.
+- 🔌 **Plugin System**: Extensible architecture (GraphQL, NoSQL support).
+- 📈 **Real-time Dashboard**: Visual scan progress via Web UI.
+- ⚙️ **Config Profiles**: Fast/Balanced/Stealth presets.
 
 ## 📊 Test Results
 

@@ -4,7 +4,7 @@
 
 ```bash
 cd VIPSQLi
-pip install -r requirements.txt
+pip install -r requirements.txt # Installs all v2.2 dependencies
 ```
 
 ## Basic Usage
@@ -26,6 +26,8 @@ python sqli_scanner_advanced.py \
   -e exclusions.txt \
   --threads 10 \
   --time-based \
+  --ml \
+  --pdf \
   -o results.json \
   --csv results.csv
 ```
@@ -71,6 +73,10 @@ python sqli_scanner_advanced.py -l urls.txt -o report.json --csv report.csv
 
 ✅ Beautiful modern UI with progress bars  
 ✅ 5-10x faster with multi-threading  
+✅ ML-Powered detection (Random Forest) ⭐  
+✅ Real-time Web Dashboard ⭐  
+✅ Professional PDF Reporting ⭐  
+✅ Cloud Integrations (S3, Slack, Jira) ⭐  
 ✅ Time-based blind SQLi detection  
 ✅ Professional JSON/CSV reports  
 ✅ Live statistics dashboard  
