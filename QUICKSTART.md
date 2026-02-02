@@ -84,4 +84,4 @@ python sqli_scanner_advanced.py -l urls.txt -o report.json --csv report.csv
 
 ---
 
-**Need Help?** Run `python sqli_scanner_advanced.py --help`
+**EST 2026 . viphacker100**

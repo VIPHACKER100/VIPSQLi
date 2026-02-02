@@ -1,5 +1,9 @@
 # 🔥 VIP SQLi Scanner - Advanced Edition v2.2
 
+<p align="center">
+  <img src="assets/logo.svg" width="200" alt="VIP SQLi Scanner Logo">
+</p>
+
 **Professional SQL Injection Triage Tool with Modern UI**
 
 A next-generation SQLi detection tool featuring beautiful terminal UI, multi-threading, advanced detection methods, and enterprise-grade reporting.
@@ -521,9 +525,10 @@ This tool is for **educational and authorized security testing only**. Always ob
 
 ---
 
-**Created with the 30-Second Framework** 🔥  
-**Powered by Rich Library** 🎨  
-**Enterprise-Grade Security Testing** 🛡️
+**Version**: 2.2 (Advanced Edition)  
+**Status**: Production Ready  
+**Quality**: Enterprise Grade (Cyberpunk Edition)  
 
-**GitHub**: [https://GitHub.com/viphacker100/](https://GitHub.com/viphacker100/)  
-**Website**: [https://viphacker100.com](https://viphacker100.com)
+---
+
+**EST 2026 . viphacker100**

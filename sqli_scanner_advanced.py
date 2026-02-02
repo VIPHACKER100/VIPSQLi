@@ -427,6 +427,15 @@ def print_banner():
     
     banner_content.append("NET_LINK: ", style="dim")
     banner_content.append(GITHUB_URL, style="blue underline")
+    banner_content.append("\n")
+    
+    # Status Indicators
+    from pathlib import Path
+    ml_status = "ACTIVE" if Path("ml/models/default.pkl").exists() else "OFFLINE"
+    ml_color = "bold green" if ml_status == "ACTIVE" else "bold red"
+    
+    banner_content.append(">> ML_ENGINE: ", style="dim white")
+    banner_content.append(ml_status, style=ml_color)
     
     panel = Panel(
         banner_content,
@@ -447,13 +456,13 @@ def create_stats_panel():
     stats_table.add_column(style="magenta")
     stats_table.add_column(style="bold white")
     
-    stats_table.add_row("NETWORK_TOTAL:", str(stats.total))
+    stats_table.add_row("NETWORK_TOTAL:", f"[bold cyan]{stats.total}[/bold cyan]")
     stats_table.add_row("BYPASSED_WAF:", f"[bold yellow]{stats.waf_detected}[/bold yellow]")
-    stats_table.add_row("VULNERABILITIES:", f"[bold red blink]CRITICAL_{stats.vulnerable}[/bold red blink]")
-    stats_table.add_row("CLEAN_NODES:", f"[bold cyan]{stats.safe}[/bold cyan]")
-    stats_table.add_row("PACKET_ERRORS:", f"[red]{stats.errors}[/red]")
-    stats_table.add_row("TIME_ELAPSED:", f"{elapsed}s")
-    stats_table.add_row("FREQ_HZ:", f"{rps:.2f} rps")
+    stats_table.add_row("VULNERABILITIES:", f"[bold magenta]CRITICAL_{stats.vulnerable}[/bold magenta]")
+    stats_table.add_row("CLEAN_NODES:", f"[bold green]{stats.safe}[/bold green]")
+    stats_table.add_row("PACKET_ERRORS:", f"[bold red]{stats.errors}[/bold red]")
+    stats_table.add_row("TIME_ELAPSED:", f"[white]{elapsed}s[/white]")
+    stats_table.add_row("FREQ_HZ:", f"[blue]{rps} rps[/blue]")
     
     return Panel(stats_table, title="[bold magenta]SYS_METRICS[/bold magenta]", border_style="cyan", box=box.SQUARE)
 

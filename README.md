@@ -1,4 +1,12 @@
-# 🔥 VIP SQLi Scanner - Professional Triage Tool v2.2
+<p align="center">
+  <img src="assets/logo.svg" width="200" alt="VIP SQLi Scanner Logo">
+</p>
+
+# 🔥 VIP SQLi Scanner - Advanced Edition v2.2
+
+<p align="center">
+  <img src="assets/logo.svg" width="150" alt="VIP Logo">
+</p>
 
 **REAL SQLi PEHCHANNE KA 30-SECOND FRAMEWORK**
 
@@ -253,7 +261,10 @@ Educational use only. Use responsibly.
 
 ---
 
-**Created with the 30-Second Framework for professional SQLi triage** 🔥
+**Version**: 2.2 (Advanced Edition)  
+**Status**: Production Ready  
+**Quality**: Enterprise Grade (Cyberpunk Edition)  
 
-**GitHub**: [https://GitHub.com/viphacker100/](https://GitHub.com/viphacker100/)  
-**Website**: [https://viphacker100.com](https://viphacker100.com)
+---
+
+**EST 2026 . viphacker100**

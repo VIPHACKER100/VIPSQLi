@@ -301,13 +301,4 @@ With `-v` flag, see each URL as it's scanned:
 
 ---
 
-## 🔗 Links
-
-- **GitHub**: [https://GitHub.com/viphacker100/](https://GitHub.com/viphacker100/)
-- **Website**: [https://viphacker100.com](https://viphacker100.com)
-
----
-
-**Created with the 30-Second Framework** 🔥  
-**Powered by Rich Library** 🎨  
-**Enterprise-Grade Security Testing** 🛡️
+**EST 2026 . viphacker100**
