@@ -997,6 +997,7 @@ def main():
             args.url = Prompt.ask("Enter single URL")
         args.threads = int(Prompt.ask("Number of threads", default="5"))
         args.use_async = Confirm.ask("Use async scanning?", default=False)
+        args.filter = Confirm.ask("Organize results by domain (filter)?", default=False)
         args.html = Prompt.ask("HTML Report Filename (optional)")
     
     # Resolve URL from positional or flag
