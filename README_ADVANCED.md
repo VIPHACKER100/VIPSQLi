@@ -1,4 +1,4 @@
-# 🔥 VIP SQLi Scanner - Advanced Edition
+# 🔥 VIP SQLi Scanner - Advanced Edition v2.1
 
 **Professional SQL Injection Triage Tool with Modern UI**
 
@@ -46,6 +46,21 @@ A next-generation SQLi detection tool featuring beautiful terminal UI, multi-thr
 - **Exclusion Patterns** - Skip unwanted URLs automatically
 - **Dynamic Payload Loading** - Load custom payloads from file
 
+## 🚀 New in Version 2.1
+
+### 📄 Professional HTML Reporting
+- **Bootstrap 5 Dashboard** - Beautiful, responsive reports
+- **Executive Summary** - Charts and key metrics
+- **Detailed Findings** - Code blocks with vulnerability details
+
+### 💾 Scan Resilience
+- **Resume Capability** - Auto-save state and resume interrupted scans
+- **State Management** - Never lose progress on large scans
+
+### 🛡️ Operational Security
+- **Proxy Support** - Rotate proxies or use a single upstream proxy (Burp/Zap)
+- **Custom Headers** - Inject Authentication tokens/cookies for authenticated scanning
+
 ---
 
 ## 📦 Installation
@@ -59,6 +74,7 @@ pip install -r requirements.txt
 - `requests` - HTTP client
 - `colorama` - Color support
 - `rich` - Modern terminal UI
+- `jinja2` - HTML reporting engine
 
 ---
 
@@ -105,6 +121,24 @@ python sqli_scanner_advanced.py -l urls.txt --async --max-concurrent 50
 python sqli_scanner_advanced.py -l urls.txt --async -p custom_payloads.txt
 ```
 
+python sqli_scanner_advanced.py -l urls.txt --async -p custom_payloads.txt
+```
+
+**Authenticated Scan (Custom Headers):**
+```bash
+python sqli_scanner_advanced.py -l urls.txt --headers headers.json
+```
+
+**Proxy Scan (Burp Suite/Zap):**
+```bash
+python sqli_scanner_advanced.py -l urls.txt --proxy http://127.0.0.1:8080
+```
+
+**Resume Interrupted Scan:**
+```bash
+python sqli_scanner_advanced.py --resume --html final_report.html
+```
+
 ---
 
 ### 🔍 Advanced Detection Commands
@@ -137,6 +171,11 @@ python sqli_scanner_advanced.py -l urls.txt --threads 10 --time-based -v
 **JSON Export:**
 ```bash
 python sqli_scanner_advanced.py -l urls.txt -o scan_results.json
+```
+
+**HTML Report (New):**
+```bash
+python sqli_scanner_advanced.py -l urls.txt --html scan_report.html
 ```
 
 **CSV Export:**
@@ -235,6 +274,10 @@ The tool will prompt you for:
 | `--time-based` | Enable time-based blind SQLi detection | `False` |
 | `-v, --verbose` | Verbose output with real-time URL status | `False` |
 | `-i, --interactive` | Interactive mode with prompts | `False` |
+| `--html` | HTML report filename | - |
+| `--resume` | Resume previous scan | `False` |
+| `--proxy` | Single proxy URL | - |
+| `--headers` | Custom headers JSON file | - |
 | `--filter` | Organize results into domain folders (safeurl.txt/vulnurl.txt) | `False` |
 
 ---

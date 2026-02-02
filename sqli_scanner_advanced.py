@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-VIP SQLi Scanner - Advanced Edition v2.0
+VIP SQLi Scanner - Advanced Edition v2.1
 Professional SQL Injection Triage Tool with Modern UI
-Enhanced with Async Scanning, WAF Detection, and Advanced Features
+Enhanced with Async Scanning, WAF Detection, HTML Reports, Resume, and Proxy Support
 """
 
 import requests
 import sys
 import re
-import os
 import argparse
 import time
 import json
 import asyncio
 import aiohttp
+import os
+import random
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -34,16 +35,24 @@ from rich.prompt import Prompt, Confirm
 from rich.tree import Tree
 from rich.syntax import Syntax
 
+# Template engine
+try:
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    JINJA_AVAILABLE = True
+except ImportError:
+    JINJA_AVAILABLE = False
+
 console = Console()
 
 # -------------------------------------------------------------------------
 # CONSTANTS & CONFIGURATION
 # -------------------------------------------------------------------------
 
-VERSION = "2.0"
+VERSION = "2.1"
 GITHUB_URL = "https://GitHub.com/viphacker100/"
 WEBSITE_URL = "https://viphacker100.com"
 
+# ... (Previous constants remain unchanged)
 STATIC_EXTENSIONS = (
     # Stylesheets & Scripts
     '.css', '.js', '.min.js', '.map', '.scss', '.sass', '.less',
@@ -140,7 +149,6 @@ ERROR_SIGNATURES = [
     "ASP.NET_SessionId", "System.Data.OleDb.OleDbException"
 ]
 
-# WAF signatures
 WAF_SIGNATURES = {
     'Cloudflare': ['cf-ray', 'cloudflare', '__cfduid', 'cf-cache-status'],
     'AWS WAF': ['x-amzn-requestid', 'x-amz-cf-id', 'awselb'],
@@ -152,7 +160,6 @@ WAF_SIGNATURES = {
     'F5 BIG-IP': ['bigipserver', 'f5'],
 }
 
-# Database fingerprints
 DB_FINGERPRINTS = {
     'MySQL': ['mysql', 'mariadb', 'you have an error in your sql syntax'],
     'PostgreSQL': ['postgresql', 'pg_query', 'unterminated quoted string'],
@@ -161,7 +168,32 @@ DB_FINGERPRINTS = {
     'SQLite': ['sqlite', 'sqlite3.operationalerror'],
 }
 
-# Payload categories
+# CVSS & Remediation Constants
+CVSS_SCORES = {
+    'CRITICAL': 9.8,  # AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+    'HIGH': 7.5,      # AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L (Example)
+    'MEDIUM': 5.3,
+    'LOW': 0.0
+}
+
+REMEDIATION_GUIDE = {
+    'error-based': """
+    1. **Disable Verbose Errors**: Configure your web server and database to suppress detailed error messages to the client.
+    2. **Use Prepared Statements**: Replace dynamic SQL queries with parameterized queries (e.g., PDO in PHP, PreparedStatement in Java).
+    3. **Input Validation**: Strictly validate and sanitize all user inputs against a whitelist of allowed characters.
+    """,
+    'time-based': """
+    1. **Parameterization**: Ensure all database interactions use bound parameters to prevent command injection.
+    2. **WAF Configuration**: specific WAF rules to block sleep/benchmark SQL keywords.
+    3. **Code Review**: Audit code for string concatenation in SQL queries.
+    """,
+    'general': """
+    1. **Least Privilege**: Ensure the database user has only the minimum necessary permissions.
+    2. **Regular Patching**: Keep database management systems updated to the latest stable versions.
+    3. **Web Application Firewall**: Deploy a WAF to filter malicious SQL patterns.
+    """
+}
+
 PAYLOAD_CATEGORIES = {
     'time_based': [],
     'error_based': [],
@@ -170,7 +202,6 @@ PAYLOAD_CATEGORIES = {
     'stacked_queries': [],
 }
 
-# Stats tracker
 class ScanStats:
     def __init__(self):
         self.total = 0
@@ -182,6 +213,7 @@ class ScanStats:
         self.waf_detected = 0
         self.start_time = time.time()
         self.db_types_detected = {}
+        self.concurrency = 0
         
     def elapsed(self):
         return time.time() - self.start_time
@@ -189,8 +221,96 @@ class ScanStats:
     def requests_per_second(self):
         elapsed = self.elapsed()
         return self.scanned / elapsed if elapsed > 0 else 0
+        
+    def to_dict(self):
+        return {
+            'total': self.total,
+            'scanned': self.scanned,
+            'vulnerable': self.vulnerable,
+            'safe': self.safe,
+            'excluded': self.excluded,
+            'errors': self.errors,
+            'waf_detected': self.waf_detected,
+            'db_types_detected': self.db_types_detected,
+            'elapsed': self.elapsed()
+        }
+        
+    def from_dict(self, data):
+        self.total = data.get('total', 0)
+        self.scanned = data.get('scanned', 0)
+        self.vulnerable = data.get('vulnerable', 0)
+        self.safe = data.get('safe', 0)
+        self.excluded = data.get('excluded', 0)
+        self.errors = data.get('errors', 0)
+        self.waf_detected = data.get('waf_detected', 0)
+        self.db_types_detected = data.get('db_types_detected', {})
+        # Note: start_time isn't fully restorable to continue elapsed count perfectly,
+        # but we can adjust it based on previous elapsed time
+        previous_elapsed = data.get('elapsed', 0)
+        self.start_time = time.time() - previous_elapsed
 
 stats = ScanStats()
+
+# -------------------------------------------------------------------------
+# STATE MANAGEMENT (RESUME)
+# -------------------------------------------------------------------------
+
+STATE_FILE = ".scan_state.json"
+
+def save_state(processed_urls: Set[str], results: List[Dict]):
+    """Save current scan state"""
+    state = {
+        'timestamp': datetime.now().isoformat(),
+        'processed_urls': list(processed_urls),
+        'results': results,
+        'stats': stats.to_dict()
+    }
+    try:
+        with open(STATE_FILE, 'w') as f:
+            json.dump(state, f)
+    except Exception as e:
+        console.print(f"[red]Error saving state: {e}[/red]")
+
+def load_state() -> Tuple[Set[str], List[Dict]]:
+    """Load previous scan state"""
+    if not os.path.exists(STATE_FILE):
+        return set(), []
+    
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+            
+        console.print(f"[cyan]ℹ[/cyan] Resuming scan from {state['timestamp']}")
+        console.print(f"  • Previously scanned: {len(state['processed_urls'])} URLs")
+        console.print(f"  • Previous findings: {len(state['results'])} entries")
+        
+        stats.from_dict(state.get('stats', {}))
+        return set(state['processed_urls']), state['results']
+    except Exception as e:
+        console.print(f"[red]Error loading state: {e}[/red]")
+        return set(), []
+
+# -------------------------------------------------------------------------
+# PROXY & HEADERS
+# -------------------------------------------------------------------------
+
+class RequestManager:
+    """Manage proxies and custom headers"""
+    def __init__(self, proxy_list: List[str] = None, headers: Dict = None):
+        self.proxies = proxy_list or []
+        self.headers = headers or {}
+        
+    def get_proxy(self) -> Optional[str]:
+        if not self.proxies:
+            return None
+        return random.choice(self.proxies)
+        
+    def get_headers(self) -> Dict:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        headers.update(self.headers)
+        return headers
 
 # -------------------------------------------------------------------------
 # PAYLOAD LOADING
@@ -232,10 +352,7 @@ def load_payloads_from_file(filepath: str = "payloads.txt") -> Dict[str, List[st
             
             for line in f:
                 line = line.strip()
-                
-                # Skip comments and empty lines
                 if not line or line.startswith('#'):
-                    # Check for category headers
                     if 'TIME-BASED' in line.upper():
                         current_category = 'time_based'
                     elif 'ERROR-BASED' in line.upper():
@@ -248,13 +365,11 @@ def load_payloads_from_file(filepath: str = "payloads.txt") -> Dict[str, List[st
                         current_category = 'stacked_queries'
                     continue
                 
-                # Add payload to current category
                 if line not in payloads[current_category]:
                     payloads[current_category].append(line)
         
         total = sum(len(v) for v in payloads.values())
         console.print(f"[green]✓[/green] Loaded {total} payloads from {filepath}")
-        
         return payloads
         
     except Exception as e:
@@ -275,7 +390,7 @@ def print_banner():
     banner_content.append("Professional SQL Injection Triage Tool", style="italic yellow")
     banner_content.append("\n\n")
     banner_content.append("✨ New Features: ", style="bold green")
-    banner_content.append("Async Scanning | WAF Detection | DB Fingerprinting | HTML Reports", style="dim")
+    banner_content.append("HTML Reports | Resume Capability | Proxy Support | Custom Headers", style="dim")
     banner_content.append("\n\n")
     banner_content.append("GitHub: ", style="dim")
     banner_content.append(GITHUB_URL, style="bold blue underline")
@@ -343,58 +458,39 @@ def display_result_table(results):
     console.print(table)
 
 # -------------------------------------------------------------------------
-# WAF DETECTION
+# DETECTION LOGIC
 # -------------------------------------------------------------------------
 
 def detect_waf(url: str, headers: dict, content: str) -> Optional[str]:
     """Detect Web Application Firewall"""
     detected_waf = None
-    
-    # Check headers
     for waf_name, signatures in WAF_SIGNATURES.items():
         for sig in signatures:
-            # Check in headers
             for header_name, header_value in headers.items():
                 if sig.lower() in header_name.lower() or sig.lower() in str(header_value).lower():
                     detected_waf = waf_name
                     break
-            
-            # Check in content
             if sig.lower() in content.lower():
                 detected_waf = waf_name
                 break
-                
-        if detected_waf:
-            break
-    
+        if detected_waf: break
     return detected_waf
-
-# -------------------------------------------------------------------------
-# DATABASE FINGERPRINTING
-# -------------------------------------------------------------------------
 
 def fingerprint_database(content: str, errors: List[str]) -> Optional[str]:
     """Fingerprint database type from error messages"""
     content_lower = content.lower()
     errors_lower = ' '.join(errors).lower()
     combined = content_lower + ' ' + errors_lower
-    
     for db_type, signatures in DB_FINGERPRINTS.items():
         for sig in signatures:
             if sig.lower() in combined:
                 return db_type
-    
     return None
-
-# -------------------------------------------------------------------------
-# DETECTION FUNCTIONS
-# -------------------------------------------------------------------------
 
 def rule_zero_static_check(url):
     """Rule #0: Static file != SQLi"""
     parsed = urlparse(url)
     path = parsed.path.lower()
-    
     if path.endswith(STATIC_EXTENSIONS):
         return False, f"Static file extension detected ({path.split('.')[-1]})"
     return True, "Passed"
@@ -403,21 +499,17 @@ def step_one_file_type(url):
     """Step 1: File type check"""
     parsed = urlparse(url)
     path = parsed.path.lower()
-    
     for imp_path in IMPOSSIBLE_PATHS:
         if imp_path in path:
             return False, f"Path is in safe directory: {imp_path}"
-            
     if path.endswith(POSSIBLE_SQLI_EXTENSIONS):
         return True, f"High risk extension detected ({path.split('.')[-1]})"
-        
     return True, "Standard endpoint (proceeding)"
 
 def step_two_param_check(url):
     """Step 2: Parameter name check"""
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
-    
     if not query_params:
         return False, "No parameters found in URL"
         
@@ -433,10 +525,8 @@ def step_two_param_check(url):
             
     if low_risk_found and not high_risk_found:
         return "LOW", f"Mostly low risk params: {low_risk_found}"
-        
     if high_risk_found:
         return "HIGH", f"High risk parameters found: {high_risk_found}"
-        
     return "NEUTRAL", f"Parameters found: {list(query_params.keys())}"
 
 def check_error_signatures(content):
@@ -447,19 +537,17 @@ def check_error_signatures(content):
             found.append(sig)
     return found
 
-def test_time_based_sqli(url, session, timeout=10, payloads=None):
+def test_time_based_sqli(url, session, timeout=10, payloads=None, req_manager=None):
     """Test for time-based blind SQLi"""
     if payloads is None:
-        payloads = PAYLOAD_CATEGORIES.get('time_based', [])[:3]  # Use first 3
+        payloads = PAYLOAD_CATEGORIES.get('time_based', [])[:3]
     
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
-    
     if not query_params:
         return False, []
     
     vulnerable_params = []
-    
     for param in query_params.keys():
         if param.lower() not in HIGH_RISK_PARAMS:
             continue
@@ -467,16 +555,15 @@ def test_time_based_sqli(url, session, timeout=10, payloads=None):
         for payload in payloads:
             fuzzed_params = query_params.copy()
             fuzzed_params[param] = [payload]
-            
             new_query = urlencode(fuzzed_params, doseq=True)
             fuzzed_url = urlunparse(parsed._replace(query=new_query))
             
             try:
+                proxies = {'http': req_manager.get_proxy(), 'https': req_manager.get_proxy()} if req_manager else None
                 start = time.time()
-                resp = session.get(fuzzed_url, timeout=timeout)
+                resp = session.get(fuzzed_url, timeout=timeout, proxies=proxies)
                 elapsed = time.time() - start
                 
-                # If response took >= 4 seconds, likely vulnerable
                 if elapsed >= 4:
                     vulnerable_params.append({
                         'param': param,
@@ -486,14 +573,12 @@ def test_time_based_sqli(url, session, timeout=10, payloads=None):
                     return True, vulnerable_params
             except:
                 pass
-    
     return False, vulnerable_params
 
-def step_three_four_behavior_error(url, enable_time_based=False, payloads=None):
+def step_three_four_behavior_error(url, enable_time_based=False, payloads=None, req_manager=None):
     """Step 3 & 4: Behavior test & Error signature"""
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
-    
     if not query_params:
         return "SKIP", "No params to fuzz", {}
     
@@ -502,22 +587,23 @@ def step_three_four_behavior_error(url, enable_time_based=False, payloads=None):
         target_params = list(query_params.keys())
         
     session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    })
+    # Apply custom headers
+    if req_manager:
+        session.headers.update(req_manager.get_headers())
+    else:
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
 
-    # Baseline Request
     try:
-        baseline = session.get(url, timeout=10)
+        proxies = {'http': req_manager.get_proxy(), 'https': req_manager.get_proxy()} if req_manager else None
+        baseline = session.get(url, timeout=10, proxies=proxies)
     except Exception as e:
         return "ERROR", f"Failed to connect: {str(e)}", {}
 
-    # WAF Detection
+    # WAF & Error Detection in Baseline
     waf_detected = detect_waf(url, baseline.headers, baseline.text)
     if waf_detected:
         stats.waf_detected += 1
 
-    # Check for existing errors in baseline
     baseline_errors = check_error_signatures(baseline.text)
     if baseline_errors:
         db_type = fingerprint_database(baseline.text, baseline_errors)
@@ -531,7 +617,7 @@ def step_three_four_behavior_error(url, enable_time_based=False, payloads=None):
 
     # Time-based blind SQLi test
     if enable_time_based:
-        is_vuln, time_results = test_time_based_sqli(url, session, payloads=payloads)
+        is_vuln, time_results = test_time_based_sqli(url, session, payloads=payloads, req_manager=req_manager)
         if is_vuln:
             result_details = {'type': 'time-based', 'results': time_results}
             if waf_detected:
@@ -545,13 +631,12 @@ def step_three_four_behavior_error(url, enable_time_based=False, payloads=None):
     for param in target_params:
         fuzzed_params = query_params.copy()
         fuzzed_params[param] = ['99999999']
-        
         new_query = urlencode(fuzzed_params, doseq=True)
         fuzzed_url = urlunparse(parsed._replace(query=new_query))
         
         try:
-            resp = session.get(fuzzed_url, timeout=10)
-            
+            proxies = {'http': req_manager.get_proxy(), 'https': req_manager.get_proxy()} if req_manager else None
+            resp = session.get(fuzzed_url, timeout=10, proxies=proxies)
             errors = check_error_signatures(resp.text)
             if errors:
                 real_sqli_candidate = True
@@ -572,87 +657,36 @@ def step_three_four_behavior_error(url, enable_time_based=False, payloads=None):
     return "SAFE", "No obvious SQLi behavior detected", {}
 
 # -------------------------------------------------------------------------
-# ASYNC SCANNING FUNCTIONS
+# ASYNC SCANNING
 # -------------------------------------------------------------------------
 
 async def async_scan_single_url(session: aiohttp.ClientSession, url: str, 
                                 enable_time_based: bool = False, 
                                 payloads: Dict = None,
-                                semaphore: asyncio.Semaphore = None) -> Dict:
-    """Async scan a single URL"""
+                                semaphore: asyncio.Semaphore = None,
+                                req_manager: RequestManager = None) -> Dict:
     if semaphore:
         async with semaphore:
-            return await _async_scan_url_impl(session, url, enable_time_based, payloads)
+            return await _async_scan_url_impl(session, url, enable_time_based, payloads, req_manager)
     else:
-        return await _async_scan_url_impl(session, url, enable_time_based, payloads)
+        return await _async_scan_url_impl(session, url, enable_time_based, payloads, req_manager)
 
 async def _async_scan_url_impl(session: aiohttp.ClientSession, url: str,
-                                enable_time_based: bool, payloads: Dict) -> Dict:
-    """Implementation of async URL scanning"""
-    result = {
-        'url': url,
-        'verdict': 'SAFE',
-        'risk': 'Low',
-        'details': '',
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    # Rule #0
-    should_proceed, msg = rule_zero_static_check(url)
-    if not should_proceed:
-        result['details'] = msg
-        stats.safe += 1
-        return result
-    
-    # Step 1
-    should_proceed, msg = step_one_file_type(url)
-    if not should_proceed:
-        result['details'] = msg
-        stats.safe += 1
-        return result
-    
-    # Step 2
-    risk_level, msg = step_two_param_check(url)
-    if risk_level == False:
-        result['details'] = "No parameters"
-        stats.safe += 1
-        return result
-    
-    # For async, we use synchronous requests for actual testing
-    # (aiohttp doesn't support precise timing for time-based SQLi)
-    verdict, msg, details = step_three_four_behavior_error(url, enable_time_based, payloads)
-    
-    result['verdict'] = verdict
-    result['details'] = msg
-    
-    if verdict == "CRITICAL":
-        result['risk'] = 'Critical'
-        stats.vulnerable += 1
-        if details:
-            result['vuln_details'] = details
-    elif verdict == "WARN":
-        result['risk'] = 'Medium'
-        stats.safe += 1
-    elif verdict == "ERROR":
-        result['risk'] = 'Error'
-        stats.errors += 1
-    else:
-        result['risk'] = 'Low'
-        stats.safe += 1
-    
-    stats.scanned += 1
+                                enable_time_based: bool, payloads: Dict, 
+                                req_manager: RequestManager = None) -> Dict:
+    # Use thread pool to run synchronous detection logic (reusing implementation)
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, scan_single_url, url, enable_time_based, False, payloads, req_manager)
     return result
 
-async def scan_urls_async(urls: List[str], exclusions: List[str] = [], 
-                          max_concurrent: int = 20, enable_time_based: bool = False,
-                          payloads: Dict = None, verbose: bool = False) -> List[Dict]:
-    """Scan multiple URLs asynchronously with live stats"""
-    results = []
-    semaphore = asyncio.Semaphore(max_concurrent)
+async def scan_urls_async(urls, exclusions=[], max_concurrent=20, enable_time_based=False,
+                          payloads=None, verbose=False, req_manager=None, resume_state=None):
+    results = resume_state[1] if resume_state else []
+    processed_urls = resume_state[0] if resume_state else set()
     
-    # Filter excluded URLs
     urls_to_scan = []
     for url in urls:
+        if url in processed_urls: continue
         excluded = False
         for pattern in exclusions:
             if pattern in url:
@@ -662,16 +696,15 @@ async def scan_urls_async(urls: List[str], exclusions: List[str] = [],
         if not excluded:
             urls_to_scan.append(url)
     
-    connector = aiohttp.TCPConnector(limit=max_concurrent, limit_per_host=10)
+    semaphore = asyncio.Semaphore(max_concurrent)
+    connector = aiohttp.TCPConnector(limit=max_concurrent)
     timeout = aiohttp.ClientTimeout(total=30)
     
     async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        tasks = [
-            async_scan_single_url(session, url, enable_time_based, payloads, semaphore)
-            for url in urls_to_scan
-        ]
+        tasks = []
+        for url in urls_to_scan:
+            tasks.append(async_scan_single_url(session, url, enable_time_based, payloads, semaphore, req_manager))
         
-        # Use progress bar with live stats in verbose mode
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -682,31 +715,36 @@ async def scan_urls_async(urls: List[str], exclusions: List[str] = [],
         ) as progress:
             task = progress.add_task("[cyan]Scanning URLs (Async)...", total=len(tasks))
             
-            for coro in asyncio.as_completed(tasks):
-                try:
-                    result = await coro
-                    results.append(result)
-                    
-                    # Show current URL being processed if verbose
-                    if verbose:
-                        status = "🔴 VULNERABLE" if result['verdict'] == 'CRITICAL' else "✅ SAFE"
-                        console.print(f"{status} | {result['url'][:80]}")
-                        
-                except Exception as e:
-                    stats.errors += 1
-                    if verbose:
-                        console.print(f"[red]Error:[/red] {str(e)}")
+            # Process in chunks to save state periodically
+            chunk_size = 50
+            completed_count = 0
+            
+            for i in range(0, len(tasks), chunk_size):
+                chunk = tasks[i:i + chunk_size]
+                if not chunk: break
                 
-                progress.advance(task)
+                for coro in asyncio.as_completed(chunk):
+                    try:
+                        result = await coro
+                        results.append(result)
+                        processed_urls.add(result['url'])
+                        stats.scanned += 1
+                    except Exception as e:
+                        stats.errors += 1
+                        console.print(f"[red]Error:[/red] {str(e)}")
+                    progress.advance(task)
+                    completed_count += 1
+                
+                # Auto-save state
+                save_state(processed_urls, results)
     
     return results
 
 # -------------------------------------------------------------------------
-# SCANNING LOGIC (THREADED - ORIGINAL)
+# THREADED SCANNING
 # -------------------------------------------------------------------------
 
-def scan_single_url(url, enable_time_based=False, verbose=False, payloads=None):
-    """Scan a single URL and return result (synchronous)"""
+def scan_single_url(url, enable_time_based=False, verbose=False, payloads=None, req_manager=None):
     result = {
         'url': url,
         'verdict': 'SAFE',
@@ -715,55 +753,71 @@ def scan_single_url(url, enable_time_based=False, verbose=False, payloads=None):
         'timestamp': datetime.now().isoformat()
     }
     
-    # Rule #0
     should_proceed, msg = rule_zero_static_check(url)
     if not should_proceed:
         result['details'] = msg
         stats.safe += 1
         return result
     
-    # Step 1
     should_proceed, msg = step_one_file_type(url)
     if not should_proceed:
         result['details'] = msg
         stats.safe += 1
         return result
     
-    # Step 2
     risk_level, msg = step_two_param_check(url)
     if risk_level == False:
         result['details'] = "No parameters"
         stats.safe += 1
         return result
     
-    # Step 3 & 4
-    verdict, msg, details = step_three_four_behavior_error(url, enable_time_based, payloads)
+    verdict, msg, details = step_three_four_behavior_error(url, enable_time_based, payloads, req_manager)
     
     result['verdict'] = verdict
     result['details'] = msg
     
+    # Calculate Risk & CVSS
     if verdict == "CRITICAL":
         result['risk'] = 'Critical'
+        result['cvss_score'] = CVSS_SCORES['CRITICAL']
+        result['cvss_vector'] = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
         stats.vulnerable += 1
+        
+        # Determine specific remediation
+        vuln_type = 'general'
+        if details and 'type' in details:
+            vuln_type = details['type']
+        elif details and isinstance(details, dict) and 'errors' in details:
+             vuln_type = 'error-based'
+        
+        result['remediation'] = REMEDIATION_GUIDE.get(vuln_type, REMEDIATION_GUIDE['general'])
+        
         if details:
             result['vuln_details'] = details
+            
     elif verdict == "WARN":
         result['risk'] = 'Medium'
+        result['cvss_score'] = CVSS_SCORES['MEDIUM']
+        result['cvss_vector'] = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N"
+        result['remediation'] = REMEDIATION_GUIDE['general']
         stats.safe += 1
     elif verdict == "ERROR":
         result['risk'] = 'Error'
+        result['cvss_score'] = 0.0
         stats.errors += 1
     else:
         result['risk'] = 'Low'
+        result['cvss_score'] = CVSS_SCORES['LOW']
         stats.safe += 1
     
-    stats.scanned += 1
     return result
 
 def scan_urls_threaded(urls, exclusions=[], max_workers=5, enable_time_based=False, 
-                       verbose=False, payloads=None):
-    """Scan multiple URLs with threading and verbose output"""
-    results = []
+                       verbose=False, payloads=None, req_manager=None, resume_state=None):
+    results = resume_state[1] if resume_state else []
+    processed_urls = resume_state[0] if resume_state else set()
+    
+    urls_to_scan = [u for u in urls if u not in processed_urls]
     
     with Progress(
         SpinnerColumn(),
@@ -773,14 +827,11 @@ def scan_urls_threaded(urls, exclusions=[], max_workers=5, enable_time_based=Fal
         TimeElapsedColumn(),
         console=console
     ) as progress:
-        
-        task = progress.add_task("[cyan]Scanning URLs...", total=len(urls))
+        task = progress.add_task("[cyan]Scanning URLs...", total=len(urls_to_scan))
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_url = {}
-            
-            for url in urls:
-                # Check exclusions
+            for url in urls_to_scan:
                 excluded = False
                 for pattern in exclusions:
                     if pattern in url:
@@ -789,43 +840,40 @@ def scan_urls_threaded(urls, exclusions=[], max_workers=5, enable_time_based=Fal
                         break
                 
                 if not excluded:
-                    future = executor.submit(scan_single_url, url, enable_time_based, verbose, payloads)
+                    future = executor.submit(scan_single_url, url, enable_time_based, verbose, payloads, req_manager)
                     future_to_url[future] = url
                 else:
+                    processed_urls.add(url) # Excluded counts as processed
                     progress.advance(task)
             
+            completed_count = 0
             for future in as_completed(future_to_url):
                 url = future_to_url[future]
                 try:
                     result = future.result()
                     results.append(result)
-                    
-                    # Show current URL being processed if verbose
-                    if verbose:
-                        status = "🔴 VULNERABLE" if result['verdict'] == 'CRITICAL' else "✅ SAFE"
-                        console.print(f"{status} | {result['url'][:80]}")
-                        
+                    processed_urls.add(url)
+                    stats.scanned += 1
                 except Exception as e:
-                    results.append({
-                        'url': url,
-                        'verdict': 'ERROR',
-                        'risk': 'Error',
-                        'details': str(e)
-                    })
+                    results.append({'url': url, 'verdict': 'ERROR', 'risk': 'Error', 'details': str(e)})
                     stats.errors += 1
-                    if verbose:
-                        console.print(f"[red]Error:[/red] {str(e)}")
+                    processed_urls.add(url)
                 
                 progress.advance(task)
+                completed_count += 1
+                
+                if completed_count % 50 == 0:
+                    save_state(processed_urls, results)
+        
+        save_state(processed_urls, results)
     
     return results
 
 # -------------------------------------------------------------------------
-# EXPORT FUNCTIONS
+# EXPORT
 # -------------------------------------------------------------------------
 
 def export_json(results, filename):
-    """Export results to JSON"""
     output = {
         'scan_info': {
             'version': VERSION,
@@ -839,20 +887,17 @@ def export_json(results, filename):
             'waf_detected': stats.waf_detected,
             'elapsed_seconds': int(stats.elapsed()),
             'requests_per_second': round(stats.requests_per_second(), 2),
-            'databases_detected': stats.db_types_detected
+            'databases_detected': stats.db_types_detected,
+            'concurrency': stats.concurrency
         },
         'results': results
     }
-    
     with open(filename, 'w') as f:
         json.dump(output, f, indent=2)
-    
     console.print(f"[green]✓[/green] JSON report saved: {filename}")
 
 def export_csv(results, filename):
-    """Export results to CSV"""
     import csv
-    
     with open(filename, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=['url', 'verdict', 'risk', 'details'])
         writer.writeheader()
@@ -863,59 +908,46 @@ def export_csv(results, filename):
                 'risk': result['risk'],
                 'details': result['details']
             })
-    
     console.print(f"[green]✓[/green] CSV report saved: {filename}")
 
-def organize_by_domain(results, verbose=False):
-    """Organize results into domain-specific folders"""
-    console.print("\n[bold cyan]Organizing results by domain...[/bold cyan]")
-    
-    domain_stats = {}
-    
-    for result in results:
-        url = result['url']
-        verdict = result['verdict']
+def export_html(results, filename):
+    if not JINJA_AVAILABLE:
+        console.print("[yellow]⚠ Jinja2 not installed. Skipping HTML report.[/yellow]")
+        console.print("Run: pip install jinja2")
+        return
+
+    try:
+        env = Environment(
+            loader=FileSystemLoader("templates"),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+        template = env.get_template("report_template.html")
         
-        try:
-            parsed = urlparse(url)
-            domain = parsed.netloc.split(':')[0]  # Remove port if present
+        scan_info = {
+            'version': VERSION,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'total_urls': stats.total,
+            'scanned': stats.scanned,
+            'vulnerable': stats.vulnerable,
+            'safe': stats.safe,
+            'excluded': stats.excluded,
+            'errors': stats.errors,
+            'waf_detected': stats.waf_detected,
+            'elapsed_seconds': int(stats.elapsed()),
+            'requests_per_second': round(stats.requests_per_second(), 2),
+            'databases_detected': stats.db_types_detected,
+            'concurrency': stats.concurrency
+        }
+        
+        html_content = template.render(results=results, scan_info=scan_info)
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(html_content)
             
-            # Sanitize domain for folder name
-            safe_domain = "".join(x for x in domain if x.isalnum() or x in "._-")
-            
-            if not safe_domain:
-                continue
-                
-            # Create directory
-            if not os.path.exists(safe_domain):
-                os.makedirs(safe_domain)
-            
-            # Determine filename based on verdict
-            if verdict in ["CRITICAL", "WARN"]:
-                filename = os.path.join(safe_domain, "vulnurl.txt")
-                status_type = "vulnerable"
-            else:
-                filename = os.path.join(safe_domain, "safeurl.txt")
-                status_type = "safe"
-                
-            # Append URL to file
-            with open(filename, 'a') as f:
-                f.write(url + '\n')
-            
-            # Track stats
-            if safe_domain not in domain_stats:
-                domain_stats[safe_domain] = {'safe': 0, 'vulnerable': 0}
-            domain_stats[safe_domain][status_type] += 1
-            
-        except Exception as e:
-            if verbose:
-                console.print(f"[red]Error organizing URL {url}: {str(e)}[/red]")
-    
-    # Print summary
-    for domain, counts in domain_stats.items():
-        console.print(f"  • [bold]{domain}[/bold]: {counts['safe']} safe, {counts['vulnerable']} vulnerable")
-    
-    console.print(f"[green]✓[/green] Output organized into {len(domain_stats)} domain folders")
+        console.print(f"[green]✓[/green] HTML report saved: {filename}")
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Error generating HTML report: {e}")
 
 # -------------------------------------------------------------------------
 # MAIN
@@ -925,24 +957,34 @@ def main():
     print_banner()
     
     parser = argparse.ArgumentParser(
-        description=f"VIP SQLi Scanner - Advanced Edition v{VERSION}\n\nGitHub: {GITHUB_URL}\nWebsite: {WEBSITE_URL}",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Created by VIPHacker100 | For educational and authorized testing only"
+        description=f"VIP SQLi Scanner - Advanced Edition v{VERSION}",
+        epilog="Created by VIPHacker100"
     )
-    parser.add_argument("url", nargs='?', help="Target URL to scan")
+    parser.add_argument("url_pos", nargs='?', help="Target URL to scan")
+    parser.add_argument("-u", "--url", help="Target URL (alternative to positional)")
     parser.add_argument("-l", "--list", help="File containing list of URLs")
     parser.add_argument("-e", "--exclude", help="File containing exclusion patterns")
-    parser.add_argument("-p", "--payloads", default="payloads.txt", help="Payload file (default: payloads.txt)")
-    parser.add_argument("-o", "--output", help="Output file (JSON format)")
+    parser.add_argument("-p", "--payloads", default="payloads.txt", help="Payload file")
+    
+    # Export options
+    parser.add_argument("-o", "--output", help="Output JSON file")
     parser.add_argument("--csv", help="Export to CSV file")
-    parser.add_argument("-t", "--threads", type=int, default=5, help="Number of threads (default: 5)")
-    parser.add_argument("--async", dest="use_async", action="store_true", help="Use async scanning (faster)")
-    parser.add_argument("--max-concurrent", type=int, default=20, help="Max concurrent requests for async mode (default: 20)")
-    parser.add_argument("--time-based", action="store_true", help="Enable time-based blind SQLi detection")
+    parser.add_argument("--html", help="Export to HTML report")
+    
+    # Performance & Config
+    parser.add_argument("-t", "--threads", type=int, default=5, help="Number of threads")
+    parser.add_argument("--async", dest="use_async", action="store_true", help="Use async scanning")
+    parser.add_argument("--max-concurrent", type=int, default=20, help="Max requests (async)")
+    parser.add_argument("--time-based", action="store_true", help="Enable time-based SQLi")
+    
+    # Advanced Options
+    parser.add_argument("--resume", action="store_true", help="Resume previous scan")
+    parser.add_argument("--proxy", help="Single proxy (http://ip:port)")
+    parser.add_argument("--proxy-list", help="File containing list of proxies")
+    parser.add_argument("--headers", help="JSON file with custom headers")
+    
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode")
-
-    parser.add_argument("--filter", action="store_true", help="Organize results into domain folders (safeurl.txt/vulnurl.txt)")
     
     args = parser.parse_args()
     
@@ -954,99 +996,146 @@ def main():
             args.url = Prompt.ask("Enter single URL")
         args.threads = int(Prompt.ask("Number of threads", default="5"))
         args.use_async = Confirm.ask("Use async scanning?", default=False)
-        args.time_based = Confirm.ask("Enable time-based detection?", default=False)
-        args.filter = Confirm.ask("Organize results by domain?", default=False)
+        args.html = Prompt.ask("HTML Report Filename (optional)")
     
-    # Validate arguments
-    if not args.url and not args.list:
-        parser.error("Either provide a URL or use --list to specify a file")
+    # Resolve URL from positional or flag
+    target_url = args.url or args.url_pos
     
-    # Load payloads
+    if not target_url and not args.list:
+        parser.error("Either provide a URL (positional or -u) or use --list to specify a file")
+    
+    # --- Load Configuration ---
+    
+    # Payloads
     payloads = load_payloads_from_file(args.payloads)
     global PAYLOAD_CATEGORIES
     PAYLOAD_CATEGORIES = payloads
     
-    # Load exclusions
+    # Exclusions
     exclusions = []
     if args.exclude:
         try:
             with open(args.exclude, 'r') as f:
-                exclusions = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-            console.print(f"[cyan]ℹ[/cyan] Loaded {len(exclusions)} exclusion patterns\n")
+                exclusions = [line.strip() for line in f if line.strip() and not '/#' in line]
+            console.print(f"[cyan]ℹ[/cyan] Loaded {len(exclusions)} exclusion patterns")
         except FileNotFoundError:
             console.print(f"[red]✗[/red] Exclusion file not found: {args.exclude}")
             sys.exit(1)
-    
-    # Load URLs
+            
+    # URLs
     urls_to_scan = []
     if args.list:
         try:
             with open(args.list, 'r') as f:
-                urls_to_scan = [line.strip() for line in f if line.strip() and not line.startswith('#')]
-            console.print(f"[cyan]ℹ[/cyan] Loaded {len(urls_to_scan)} URLs from list\n")
+                urls_to_scan = [line.strip() for line in f if line.strip()]
+            console.print(f"[cyan]ℹ[/cyan] Loaded {len(urls_to_scan)} URLs from list")
         except FileNotFoundError:
             console.print(f"[red]✗[/red] URL list file not found: {args.list}")
             sys.exit(1)
     else:
-        urls_to_scan = [args.url]
-    
+        urls_to_scan = [target_url]
+        
     stats.total = len(urls_to_scan)
+    stats.concurrency = args.max_concurrent if args.use_async else args.threads
     
-    # Scan URLs
-    if args.use_async:
-        console.print(f"[bold cyan]Starting async scan with {args.max_concurrent} concurrent requests...[/bold cyan]\n")
-        results = asyncio.run(scan_urls_async(
-            urls_to_scan,
-            exclusions=exclusions,
-            max_concurrent=args.max_concurrent,
-            enable_time_based=args.time_based,
-            payloads=payloads,
-            verbose=args.verbose
-        ))
-    else:
-        console.print(f"[bold cyan]Starting scan with {args.threads} threads...[/bold cyan]\n")
-        results = scan_urls_threaded(
-            urls_to_scan,
-            exclusions=exclusions,
-            max_workers=args.threads,
-            enable_time_based=args.time_based,
-            verbose=args.verbose,
-            payloads=payloads
-        )
+    # Proxies
+    proxy_list = []
+    if args.proxy_list:
+        try:
+            with open(args.proxy_list, 'r') as f:
+                proxy_list = [line.strip() for line in f if line.strip()]
+            console.print(f"[cyan]ℹ[/cyan] Loaded {len(proxy_list)} proxies")
+        except:
+            console.print(f"[red]✗[/red] Proxy list not found")
+            sys.exit(1)
+    elif args.proxy:
+        proxy_list = [args.proxy]
+        
+    # Custom Headers
+    custom_headers = {}
+    if args.headers:
+        try:
+            with open(args.headers, 'r') as f:
+                custom_headers = json.load(f)
+            console.print(f"[cyan]ℹ[/cyan] Loaded custom headers")
+        except:
+            console.print(f"[red]✗[/red] Failed to load headers file")
+            sys.exit(1)
+
+    req_manager = RequestManager(proxy_list, custom_headers)
+
+    # Resume State
+    resume_state = None
+    if args.resume:
+        resume_state = load_state()
+        
+    # --- Execute Scan ---
     
-    # Display stats
+    console.print(f"\n[bold cyan]Starting scan...[/bold cyan]\n")
+    
+    try:
+        if args.use_async:
+            results = asyncio.run(scan_urls_async(
+                urls_to_scan, exclusions, args.max_concurrent, 
+                args.time_based, payloads, args.verbose, req_manager, resume_state
+            ))
+        else:
+            results = scan_urls_threaded(
+                urls_to_scan, exclusions, args.threads, 
+                args.time_based, args.verbose, payloads, req_manager, resume_state
+            )
+    except KeyboardInterrupt:
+        console.print("\n[yellow]⚠ Scan interrupted by user. State saved.[/yellow]")
+        sys.exit(0)
+        
+    # --- Output ---
+    
     console.print()
     console.print(create_stats_panel())
     console.print()
     
-    # Display database types detected
     if stats.db_types_detected:
         console.print("[bold cyan]Database Types Detected:[/bold cyan]")
         for db_type, count in stats.db_types_detected.items():
             console.print(f"  • {db_type}: {count}")
-        console.print()
     
-    # Display results
-    if results:
-        display_result_table(results)
-    
-    # Export results
     if args.output:
         export_json(results, args.output)
-    
     if args.csv:
         export_csv(results, args.csv)
+    if args.html:
+        export_html(results, args.html)
 
-    # Organize by domain if requested
-    if args.filter:
-        organize_by_domain(results, args.verbose)
-    
-    # Summary
+    # Auto-export separate file (VIP formatting)
+    if results and len(urls_to_scan) > 0:
+        try:
+            target = urls_to_scan[0]
+            parsed = urlparse(target)
+            sitename = parsed.netloc or "target"
+            sitename = sitename.replace(":", "_")
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Determine overall status for filename
+            scan_verdict = "VULNERABLE" if stats.vulnerable > 0 else "SAFE"
+            vip_filename = f"{scan_verdict}_{sitename}_{timestamp}_vip.csv"
+            
+            export_csv(results, vip_filename)
+        except Exception as e:
+            console.print(f"[red]Error saving auto-report: {e}[/red]")
+        
     console.print()
     if stats.vulnerable > 0:
         console.print(f"[bold red]⚠ Found {stats.vulnerable} potential SQLi vulnerabilities![/bold red]")
     else:
         console.print(f"[bold green]✓ No SQLi vulnerabilities detected[/bold green]")
+        
+    # Clean up state file on successful completion
+    if os.path.exists(STATE_FILE) and not args.resume:
+        try:
+            os.remove(STATE_FILE)
+        except:
+            pass
 
 if __name__ == "__main__":
     main()

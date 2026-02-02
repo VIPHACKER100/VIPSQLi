@@ -1321,6 +1321,48 @@ theme\.
 skins\.
 
 # ============================================
+# ENTERPRISE AND LEGACY PATHS
+# ============================================
+
+# Enterprise Java / IIS
+/cgi-bin/
+/inetpub/
+/wwwroot/
+/jakarta/
+/struts/
+/axis2/
+/jmx-console/
+/web-console/
+/invoker/
+/manager/html/
+
+# Extended Media Types
+.svgz
+.tif
+.mp2
+.mpa
+.mpe
+.mpv2
+.m3u
+.m3u8
+
+# Extended Font Types (Web)
+.woff2
+.eot?
+.ttf?
+
+# Temporary/Backup Files
+.bak
+.old
+.swp
+.tmp
+.temp
+.~
+.orig
+.save
+
+
+# ============================================
 # FINAL NOTES
 # ============================================
 
@@ -1331,12 +1373,640 @@ skins\.
 # 4. Use regex patterns carefully to avoid over-matching
 # 5. Consider performance implications of large exclusion lists
 
-# These exclusions help:
-# - Reduce scanning time by skipping non-vulnerable paths
-# - Avoid false positives from static content
-# - Prevent session termination from logout endpoints
-# - Respect the scope of authorized testing
-# - Improve scanner efficiency and accuracy
+# These additions cover:
+# - Modern image and file formats
+# - Additional framework and tooling paths
+# - Common API patterns and webhooks
+# - Enhanced authentication flows
+# - Monitoring and logging endpoints
+# - Feature flag and configuration paths
+# - Third-party service integrations
+# - Development and build artifacts
+# - Content and e-commerce operations
+# - Geographical and location-based paths
+# - Common parameter patterns
+# - Security and certificate management
+# - Real-time communication endpoints
+# - Protocol handlers and feed patterns
 
-# Always verify exclusions don't exclude legitimate test targets!
-# Some administrative paths might be in-scope for testing with proper authorization.
+# ============================================
+# NEW EXCLUSIONS TO ADD
+# ============================================
+
+# ============================================
+# ADDITIONAL STATIC FILE EXTENSIONS
+# ============================================
+
+# Image formats
+.jfif
+.pjpeg
+.pjp
+.heic
+.heif
+.avif
+.jp2
+.jpx
+.jpm
+.jxr
+.hdp
+.wdp
+.jxr
+
+# Vector and CAD formats
+.ai
+.eps
+.ps
+.psd
+.indd
+.indt
+.indb
+.cdr
+.dwg
+.dxf
+.stl
+.obj
+.fbx
+.blend
+.3ds
+.max
+.maya
+.skp
+
+# Configuration files
+.conf
+.config
+.cfg
+.ini
+.properties
+.yml
+.yaml
+.toml
+.xml
+.json
+.json5
+.env
+.example
+.dist
+.sample
+.template
+.manifest
+
+# ============================================
+# ADDITIONAL FRAMEWORK/DEPENDENCY PATHS
+# ============================================
+
+# Framework config paths
+/.config/
+/.local/
+/.docker/
+/.kube/
+/.terraform/
+/.serverless/
+/.aws/
+/.azure/
+/.gcloud/
+
+# Development tool paths
+/.eslint/
+/.prettier/
+/.babel/
+/.webpack/
+/.rollup/
+/.vite/
+/.jest/
+/.mocha/
+/.cypress/
+/.storybook/
+/.typedoc/
+
+# Container and orchestration
+/Dockerfile
+/docker-compose.yml
+/kubernetes/
+/helm/
+/.github/
+/.gitlab/
+/.circleci/
+/.travis.yml
+/.drone.yml
+/.buildkite/
+
+# ============================================
+# ADDITIONAL API AND WEBHOOK PATTERNS
+# ============================================
+
+# Webhook endpoints
+/webhook
+/webhooks
+/callback
+/callbacks
+/hook
+/hooks
+/notify
+/notification
+/push
+/subscribe
+/unsubscribe
+
+# Event and message queues
+/queue
+/queues
+/topic
+/topics
+/event
+/events
+/message
+/messages
+/bus
+/rabbitmq
+/kafka
+/redis
+/memcached
+
+# ============================================
+# ADDITIONAL AUTHENTICATION PATTERNS
+# ============================================
+
+# Multi-factor authentication
+/mfa
+/2fa
+/two-factor
+/otp
+/totp
+/hotp
+/u2f
+/webauthn
+/fido
+/passkey
+
+# Password management
+/password
+/passwords
+/passcode
+/pin
+/secret
+/secrets
+/key
+/keys
+/certificate
+/certificates
+
+# ============================================
+# ADDITIONAL MONITORING AND LOGGING
+# ============================================
+
+# Log files and endpoints
+/log
+/logs
+/logger
+/logging
+/audit
+/auditlog
+/trace
+/traces
+/span
+/spans
+
+# Performance profiling
+/profile
+/profiler
+/timing
+/timings
+/timeline
+/waterfall
+/flamegraph
+
+# ============================================
+# ADDITIONAL CACHE PATTERNS
+# ============================================
+
+# Cache invalidation paths
+/purge
+/invalidate
+/clear
+/flush
+/refresh
+/reload
+/revalidate
+
+# Cache control endpoints
+/cache-manifest
+/appcache
+/service-worker
+/workbox
+/precache
+
+# ============================================
+# ADDITIONAL FEATURE FLAGS AND CONFIG
+# ============================================
+
+# Feature management
+/features
+/flags
+/feature-flags
+/configs
+/settings
+/preferences
+/options
+
+# A/B testing
+/abtest
+/variant
+/experiment
+/cohort
+/segment
+
+# ============================================
+# ADDITIONAL THIRD-PARTY INTEGRATIONS
+# ============================================
+
+# Analytics services
+/ga
+/gtm
+/gtag
+/matomo
+/piwik
+/segment
+/mixpanel
+/amplitude
+/hotjar
+/fullstory
+/logrocket
+
+# Customer support
+/helpdesk
+/support
+/ticket
+/tickets
+/chat
+/chatbot
+/livechat
+/zendesk
+/freshdesk
+/intercom
+/drift
+
+# ============================================
+# ADDITIONAL DEVELOPMENT PATHS
+# ============================================
+
+# IDE and editor configs
+/.editorconfig
+/.vscode/
+/.idea/
+/.atom/
+/.sublime/
+/.emacs.d/
+/.vimrc
+/.vim/
+
+# Build artifacts
+/.build/
+/.dist/
+/out-tsc/
+/coverage/
+/.nyc_output/
+/.lighthouse/
+/.scannerwork/
+/.sonar/
+
+# ============================================
+# ADDITIONAL TEMPORARY PATHS
+# ============================================
+
+# Session and state
+/state
+/states
+/context
+/contexts
+/flow
+/flows
+/wizard
+/wizards
+/step
+/steps
+
+# Upload processing
+/process
+/processing
+/convert
+/converting
+/transform
+/transforming
+/resize
+/resizing
+/crop
+/cropping
+
+# ============================================
+# ADDITIONAL SYSTEM PATHS
+# ============================================
+
+# System information
+/info
+/about
+/version
+/buildinfo
+/env
+/environment
+/system
+/sysinfo
+
+# Maintenance operations
+/maintenance
+/upgrade
+/update
+/migrate
+/migration
+/seed
+/seeder
+/fixture
+/fixtures
+
+# ============================================
+# ADDITIONAL PATHS WITH DYNAMIC PARAMS
+# ============================================
+
+# These patterns often contain dynamic parameters that shouldn't be scanned
+/\{.*\}/
+/\[.*\]/
+/:id/
+/:slug/
+/:uuid/
+/:token/
+/:code/
+/:hash/
+
+# ============================================
+# ADDITIONAL EMAIL PATTERNS
+# ============================================
+
+# Email related endpoints
+/email
+/emails
+/mail
+/mails
+/mailing
+/newsletter
+/newsletters
+/subscription
+/subscriptions
+/unsubscribe
+/optout
+
+# Email verification
+/verify
+/verification
+/confirm
+/confirmation
+/activate
+/activation
+/validate
+/validation
+
+# ============================================
+# ADDITIONAL USER MANAGEMENT
+# ============================================
+
+# User profile paths
+/profile
+/profiles
+/account
+/accounts
+/settings
+/preferences
+/dashboard
+/home
+/me
+/myself
+/self
+
+# User relationships
+/follow
+/following
+/followers
+/friend
+/friends
+/connection
+/connections
+/contact
+/contacts
+
+# ============================================
+# ADDITIONAL CONTENT MANAGEMENT
+# ============================================
+
+# Content operations
+/publish
+/unpublish
+/draft
+/drafts
+/revision
+/revisions
+/version
+/versions
+/history
+/archive
+/archives
+
+# Content types
+/article
+/articles
+/post
+/posts
+/page
+/pages
+/blog
+/blogs
+/news
+/feed
+/feeds
+
+# ============================================
+# ADDITIONAL E-COMMERCE OPERATIONS
+# ============================================
+
+# Inventory and products
+/product
+/products
+/item
+/items
+/sku
+/skus
+/inventory
+/stock
+/category
+/categories
+/catalog
+/collection
+/collections
+
+# Shipping and fulfillment
+/ship
+/shipping
+/delivery
+/fulfillment
+/tracking
+/shipment
+/shipments
+/package
+/packages
+
+# ============================================
+# ADDITIONAL GEOGRAPHICAL PATHS
+# ============================================
+
+# Location-based paths
+/location
+/locations
+/address
+/addresses
+/geo
+/geolocation
+/map
+/maps
+/coordinates
+/bounds
+
+# Regional content
+/country
+/countries
+/state
+/states
+/city
+/cities
+/region
+/regions
+/zipcode
+/postcode
+
+# ============================================
+# ADDITIONAL SEARCH PARAMETERS
+# ============================================
+
+# Common search parameters
+q=
+query=
+search=
+s=
+keyword=
+keywords=
+term=
+terms=
+filter=
+filters=
+
+# Pagination parameters
+page=
+p=
+offset=
+limit=
+per_page=
+size=
+count=
+
+# Sorting parameters
+sort=
+order=
+by=
+direction=
+asc=
+desc=
+
+# ============================================
+# ADDITIONAL SECURITY HEADERS PATHS
+# ============================================
+
+# Security policy endpoints
+/csp
+/content-security-policy
+/hsts
+/cors
+/x-frame-options
+/referrer-policy
+/feature-policy
+/permissions-policy
+
+# Certificate and key management
+/.well-known/pki-validation/
+/.well-known/acme-challenge/
+/.well-known/letsencrypt/
+
+# ============================================
+# ADDITIONAL REAL-TIME COMMUNICATION
+# ============================================
+
+# WebRTC and signaling
+/webrtc
+/signaling
+/peer
+/peers
+/connection
+/connections
+/offer
+/answer
+/candidate
+
+# Collaboration features
+/collaborate
+/collaboration
+/whiteboard
+/board
+/boards
+/document
+/documents
+/spreadsheet
+/spreadsheets
+
+# ============================================
+# ADDITIONAL PROTOCOL HANDLERS
+# ============================================
+
+# Custom protocol handlers
+/mailto:
+/tel:
+/sms:
+/facetime:
+/skype:
+/spotify:
+/itms:
+/itms-apps:
+/market:
+/steam:
+/zoommtg:
+/zoomus:
+
+# ============================================
+# ADDITIONAL FEED PATTERNS
+# ============================================
+
+# RSS/Atom feeds
+/feed.xml
+/rss.xml
+/atom.xml
+/rss/
+/atom/
+/feeds/
+/syndication/
+
+# Social media feeds
+/timeline
+/stream
+/activity
+/activities
+/feed
+/feeds
+
+# ============================================
+# FINAL ADDITIONS SUMMARY
+# ============================================
+
+# Note: These patterns should be integrated into their respective
+# categories in the main exclusion list for better organization.
+
+# Remember to:
+# 1. Review each addition for relevance to your scanning environment
+# 2. Test exclusions to ensure they don't block legitimate targets
+# 3. Organize patterns by category for maintainability
+# 4. Consider adding regex versions for complex patterns
+# 5. Regularly update based on new technologies and patterns observed

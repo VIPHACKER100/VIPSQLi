@@ -14,16 +14,17 @@
    - Modern Rich UI with colors and tables
    - Multi-threading (5-10x faster)
    - Time-based blind SQLi detection
-   - JSON/CSV export
+   - JSON/CSV/HTML export
    - Interactive mode
-   - Professional reporting
+   - Professional reporting with Jinja2
+   - Resume capability & Proxy support
 
 ## 📁 Complete File List
 
 ### Core Files
 - `sqli_scanner.py` - Basic scanner (480 lines)
-- `sqli_scanner_advanced.py` - Advanced scanner (650 lines) ⭐
-- `requirements.txt` - Dependencies (requests, colorama, rich)
+- `sqli_scanner_advanced.py` - Advanced scanner (1000+ lines) ⭐
+- `requirements.txt` - Dependencies (requests, rich, aiohttp, jinja2)
 
 ### Documentation
 - `README.md` - Basic version documentation
@@ -40,6 +41,7 @@
 - `results.txt` - Basic version output
 - `scan_results.json` - Advanced JSON export ⭐
 - `scan_results.csv` - Advanced CSV export ⭐
+- `scan_report.html` - Professional HTML report ⭐
 
 ## 🚀 Quick Commands
 
@@ -98,6 +100,8 @@ python sqli_scanner_advanced.py -i
 ### Reporting
 - ✅ JSON export with detailed results ⭐
 - ✅ CSV export for spreadsheets ⭐
+- ✅ HTML visual reports ⭐
+- ✅ Auto-save CSV (VIP format) ⭐
 - ✅ Risk scoring (Critical/Medium/Low/Error) ⭐
 - ✅ Comprehensive scan metrics ⭐
 
@@ -176,7 +180,7 @@ This tool is for **educational and authorized security testing only**.
 
 ---
 
-**Version**: 2.0 (Advanced Edition)  
+**Version**: 2.1 (Advanced Edition)  
 **Status**: Production Ready  
 **Quality**: Enterprise Grade  
 **UI/UX**: Modern & Professional  

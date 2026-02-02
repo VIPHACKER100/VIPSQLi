@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP SQLi Scanner Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #0dcaf0;
+            --dark-color: #212529;
+            --light-color: #f8f9fa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f9;
+        }
+
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .card {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            background-color: white;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+        }
+
+        .stat-card {
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .risk-critical {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+
+        .risk-medium {
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+
+        .risk-low {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .risk-safe {
+            color: var(--success-color);
+        }
+
+        .badge-critical {
+            background-color: var(--danger-color);
+        }
+
+        .badge-medium {
+            background-color: var(--warning-color);
+            text-color: black;
+        }
+
+        .badge-low {
+            background-color: var(--success-color);
+        }
+
+        .badge-safe {
+            background-color: var(--success-color);
+        }
+
+        .badge-error {
+            background-color: var(--secondary-color);
+        }
+
+        .vulnerability-row {
+            border-left: 4px solid transparent;
+        }
+
+        .vulnerability-row.Critical {
+            border-left-color: var(--danger-color);
+            background-color: #fff5f5;
+        }
+
+        .vulnerability-row.Medium {
+            border-left-color: var(--warning-color);
+            background-color: #fffcf5;
+        }
+
+        .code-block {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-shield-lock-fill me-2"></i>VIP SQLi Scanner
+            </a>
+            <span class="navbar-text ms-auto text-light">
+                Advanced Edition v{{ scan_info.version }}
+            </span>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <!-- Executive Summary -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="mb-3">Executive Summary</h2>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="card stat-card h-100 border-start border-primary border-4">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Total URLs Scanned</h6>
+                                <h2 class="card-title text-primary">{{ scan_info.scanned }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card h-100 border-start border-danger border-4">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Vulnerabilities Found</h6>
+                                <h2 class="card-title text-danger">{{ scan_info.vulnerable }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card h-100 border-start border-warning border-4">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">WAFs Detected</h6>
+                                <h2 class="card-title text-warning">{{ scan_info.waf_detected }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card h-100 border-start border-info border-4">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Scan Duration</h6>
+                                <h2 class="card-title text-info">{{ scan_info.elapsed_seconds }}s</h2>
+                                <small class="text-muted">{{ scan_info.requests_per_second }} req/s</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database & WAF Details -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <i class="bi bi-database me-2"></i>Database Fingerprints
+                    </div>
+                    <div class="card-body">
+                        {% if scan_info.databases_detected %}
+                        <ul class="list-group list-group-flush">
+                            {% for db, count in scan_info.databases_detected.items() %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ db }}
+                                <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted text-center my-3">No specific databases identified</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <i class="bi bi-shield-check me-2"></i>Scan Configuration
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td><strong>Timestamp:</strong></td>
+                                <td>{{ scan_info.timestamp }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Threads/Concurrent:</strong></td>
+                                <td>{{ scan_info.concurrency }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Total Targets:</strong></td>
+                                <td>{{ scan_info.total_urls }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Excluded:</strong></td>
+                                <td>{{ scan_info.excluded }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Errors:</strong></td>
+                                <td>{{ scan_info.errors }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Findings -->
+        <h3 class="mb-3">Vulnerability Findings</h3>
+
+        {% if scan_info.vulnerable > 0 %}
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>Critical Issues Detected
+            </div>
+            <div class="list-group list-group-flush">
+                {% for result in results if result.verdict == 'CRITICAL' %}
+                <div class="list-group-item vulnerability-row Critical">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1 text-break">{{ result.url }}</h5>
+                        <div>
+                            <span class="badge badge-critical">CRITICAL</span>
+                            <span class="badge bg-dark ms-1">CVSS: {{ result.cvss_score }}</span>
+                        </div>
+                    </div>
+                    <p class="mb-2 mt-2"><strong>Details:</strong> {{ result.details }}</p>
+                    <small class="text-muted d-block mb-2">{{ result.cvss_vector }}</small>
+
+                    {% if result.vuln_details %}
+                    <div class="code-block mt-2">
+                        <pre>{{ result.vuln_details | tojson(indent=2) }}</pre>
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-3">
+                        <div class="alert alert-light border">
+                            <strong><i class="bi bi-tools me-2"></i>Remediation:</strong>
+                            <div class="mt-2 text-muted small">
+                                {{ result.remediation | safe }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <h3 class="mb-3 mt-5">Scan Results Log</h3>
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th>Risk</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results %}
+                            <tr>
+                                <td class="text-break">{{ result.url }}</td>
+                                <td>
+                                    {% if result.verdict == 'CRITICAL' %}
+                                    <span class="badge badge-critical">VULNERABLE</span>
+                                    {% elif result.verdict == 'WARN' %}
+                                    <span class="badge badge-medium">WARNING</span>
+                                    {% elif result.verdict == 'SAFE' %}
+                                    <span class="badge badge-safe">SAFE</span>
+                                    {% else %}
+                                    <span class="badge badge-error">ERROR</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ result.risk }}</td>
+                                <td class="small text-muted">{{ result.details }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-5 mb-3 text-center text-muted small">
+            <p>Generated by VIP SQLi Scanner Advanced Edition v{{ scan_info.version }}</p>
+            <p>&copy; 2025 VIPHacker100</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

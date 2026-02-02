@@ -143,8 +143,17 @@ python sqli_scanner_advanced.py -l urls.txt -o scan_results.json
 # CSV export
 python sqli_scanner_advanced.py -l urls.txt --csv scan_results.csv
 
-# Both JSON & CSV
-python sqli_scanner_advanced.py -l urls.txt -o results.json --csv results.csv
+# Both JSON & CSV & HTML
+python sqli_scanner_advanced.py -l urls.txt -o results.json --csv results.csv --html report.html
+```
+
+### Resume & Authenticated Scanning (v2.1)
+```bash
+# Resume interrupted scan
+python sqli_scanner_advanced.py --resume
+
+# Scan with custom headers and proxy
+python sqli_scanner_advanced.py -u "http://target.com" --headers headers.json --proxy http://127.0.0.1:8080
 ```
 
 ### Real-Time Monitoring
