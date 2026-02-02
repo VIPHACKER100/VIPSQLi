@@ -154,6 +154,9 @@ python sqli_scanner_advanced.py --resume
 
 # Scan with custom headers and proxy
 python sqli_scanner_advanced.py -u "http://target.com" --headers headers.json --proxy http://127.0.0.1:8080
+
+# Organize results by domain (Safe/Vuln lists)
+python sqli_scanner_advanced.py -l urls.txt --filter
 ```
 
 ### Real-Time Monitoring

@@ -347,7 +347,7 @@ def load_payloads_from_file(filepath: str = "payloads.txt") -> Dict[str, List[st
         return payloads
     
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             current_category = 'other'
             
             for line in f:
@@ -982,6 +982,7 @@ def main():
     parser.add_argument("--proxy", help="Single proxy (http://ip:port)")
     parser.add_argument("--proxy-list", help="File containing list of proxies")
     parser.add_argument("--headers", help="JSON file with custom headers")
+    parser.add_argument("--filter", action="store_true", help="Organize results into domain folders")
     
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode")
@@ -1015,7 +1016,7 @@ def main():
     exclusions = []
     if args.exclude:
         try:
-            with open(args.exclude, 'r') as f:
+            with open(args.exclude, 'r', encoding='utf-8', errors='ignore') as f:
                 exclusions = [line.strip() for line in f if line.strip() and not '/#' in line]
             console.print(f"[cyan]ℹ[/cyan] Loaded {len(exclusions)} exclusion patterns")
         except FileNotFoundError:
@@ -1026,7 +1027,7 @@ def main():
     urls_to_scan = []
     if args.list:
         try:
-            with open(args.list, 'r') as f:
+            with open(args.list, 'r', encoding='utf-8', errors='ignore') as f:
                 urls_to_scan = [line.strip() for line in f if line.strip()]
             console.print(f"[cyan]ℹ[/cyan] Loaded {len(urls_to_scan)} URLs from list")
         except FileNotFoundError:
@@ -1042,7 +1043,7 @@ def main():
     proxy_list = []
     if args.proxy_list:
         try:
-            with open(args.proxy_list, 'r') as f:
+            with open(args.proxy_list, 'r', encoding='utf-8', errors='ignore') as f:
                 proxy_list = [line.strip() for line in f if line.strip()]
             console.print(f"[cyan]ℹ[/cyan] Loaded {len(proxy_list)} proxies")
         except:
@@ -1055,7 +1056,7 @@ def main():
     custom_headers = {}
     if args.headers:
         try:
-            with open(args.headers, 'r') as f:
+            with open(args.headers, 'r', encoding='utf-8', errors='ignore') as f:
                 custom_headers = json.load(f)
             console.print(f"[cyan]ℹ[/cyan] Loaded custom headers")
         except:
@@ -1099,6 +1100,11 @@ def main():
         for db_type, count in stats.db_types_detected.items():
             console.print(f"  • {db_type}: {count}")
     
+    # Auto-export filtered results
+    if args.filter:
+        save_filtered_results(results)
+        
+    # Standard Exports
     if args.output:
         export_json(results, args.output)
     if args.csv:

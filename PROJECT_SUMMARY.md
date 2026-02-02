@@ -74,6 +74,7 @@ python sqli_scanner_advanced.py -i
 ### Detection Capabilities
 - ✅ 60+ static file extensions
 - ✅ 15+ dangerous file extensions
+- ✅ 1200+ exclusion patterns (Modern + Legacy) ⭐
 - ✅ 25+ safe directory paths
 - ✅ 60+ high-risk parameters
 - ✅ 40+ low-risk parameters
@@ -103,6 +104,9 @@ python sqli_scanner_advanced.py -i
 - ✅ HTML visual reports ⭐
 - ✅ Auto-save CSV (VIP format) ⭐
 - ✅ Risk scoring (Critical/Medium/Low/Error) ⭐
+- ✅ CVSS 3.1 Automated Scoring ⭐
+- ✅ Context-Aware Remediation Advice ⭐
+- ✅ Domain-based Result Filtering (`--filter`) ⭐
 - ✅ Comprehensive scan metrics ⭐
 
 ## 📊 Test Results

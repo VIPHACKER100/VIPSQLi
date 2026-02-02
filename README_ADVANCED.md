@@ -38,6 +38,8 @@ A next-generation SQLi detection tool featuring beautiful terminal UI, multi-thr
 - **JSON Export** - Detailed machine-readable results
 - **CSV Export** - Spreadsheet-compatible format
 - **Risk Scoring** - Critical/Medium/Low/Error classification
+- **CVSS 3.1 Scoring** - Automated vulnerability scoring (e.g., 9.8 Critical)
+- **Remediation Advice** - Context-aware fixes for developers
 - **Stats Dashboard** - Comprehensive scan metrics with live updates
 
 ### 🎯 User Experience
@@ -206,7 +208,9 @@ python sqli_scanner_advanced.py -l urls.txt --async --filter
 ```bash
 python sqli_scanner_advanced.py -l urls.txt --async --time-based --filter -v
 ```
-*Creates folders for each domain containing `safeurl.txt` and `vulnurl.txt`*
+python sqli_scanner_advanced.py -l urls.txt --async --time-based --filter -v
+```
+*Creates `domains/` folder with subfolders for each site containing `safeurl.txt`, `vulnurl.txt`, and `report.json`*
 
 ---
 
@@ -387,7 +391,10 @@ Starting scan with 10 threads...
 ### Static Analysis
 - **60+** static file extensions
 - **15+** dangerous file extensions
+- **60+** static file extensions
+- **15+** dangerous file extensions
 - **25+** safe directory paths
+- **New in v2.1**: Kubernetes, Docker, MFA, and modern framework exclusions
 
 ### Parameter Analysis
 - **60+** high-risk parameters
