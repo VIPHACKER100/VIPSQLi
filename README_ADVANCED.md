@@ -393,7 +393,7 @@ Starting scan with 10 threads...
 ```json
 {
   "scan_info": {
-    "timestamp": "2025-12-28T01:00:00",
+    "timestamp": "2026-02-02T01:00:00",
     "total_urls": 50,
     "scanned": 45,
     "vulnerable": 2,

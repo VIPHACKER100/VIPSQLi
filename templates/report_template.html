@@ -9,114 +9,155 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
         :root {
-            --primary-color: #0d6efd;
-            --secondary-color: #6c757d;
-            --success-color: #198754;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --info-color: #0dcaf0;
-            --dark-color: #212529;
-            --light-color: #f8f9fa;
+            --neon-blue: #00f2ff;
+            --neon-pink: #ff00ff;
+            --neon-yellow: #f3f315;
+            --obsidian: #0b0e14;
+            --dark-card: #161b22;
         }
 
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f4f6f9;
+            background-color: var(--obsidian);
+            color: #d0d0d0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-image: linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
         }
 
         .navbar {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: #000 !important;
+            border-bottom: 2px solid var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
         }
 
         .card {
-            border: none;
-            border-radius: 0.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            margin-bottom: 1.5rem;
+            background-color: var(--dark-card);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            border-radius: 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            margin-bottom: 2rem;
+            clip-path: polygon(0 0, 100% 0, 100% 90%, 98% 100%, 0 100%);
         }
 
         .card-header {
-            background-color: white;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            font-weight: 600;
+            background-color: rgba(0, 242, 255, 0.05);
+            border-bottom: 1px solid var(--neon-blue);
+            color: var(--neon-blue);
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .stat-card {
-            transition: transform 0.2s;
+            border-left: 4px solid var(--neon-blue) !important;
+            transition: all 0.3s;
         }
 
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+        }
+
+        h2,
+        h3 {
+            color: var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 8px var(--neon-blue);
+            margin-top: 2rem;
         }
 
         .risk-critical {
-            color: var(--danger-color);
+            color: var(--neon-pink);
             font-weight: bold;
         }
 
         .risk-medium {
-            color: var(--warning-color);
+            color: var(--neon-yellow);
             font-weight: bold;
         }
 
         .risk-low {
-            color: var(--success-color);
+            color: var(--neon-blue);
             font-weight: bold;
         }
 
-        .risk-safe {
-            color: var(--success-color);
+        .badge {
+            border-radius: 0;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
         }
 
         .badge-critical {
-            background-color: var(--danger-color);
+            background-color: var(--neon-pink);
+            color: white;
+            box-shadow: 0 0 8px var(--neon-pink);
         }
 
         .badge-medium {
-            background-color: var(--warning-color);
+            background-color: var(--neon-yellow);
             color: black;
-        }
-
-        .badge-low {
-            background-color: var(--success-color);
+            box-shadow: 0 0 8px var(--neon-yellow);
         }
 
         .badge-safe {
-            background-color: var(--success-color);
+            background-color: var(--neon-blue);
+            color: black;
+            box-shadow: 0 0 8px var(--neon-blue);
         }
 
         .badge-error {
-            background-color: var(--secondary-color);
+            background-color: #444;
+            color: #fff;
         }
 
         .vulnerability-row {
             border-left: 4px solid transparent;
+            background-color: transparent !important;
+            transition: background 0.2s;
+        }
+
+        .vulnerability-row:hover {
+            background-color: rgba(0, 242, 255, 0.02) !important;
         }
 
         .vulnerability-row.Critical {
-            border-left-color: var(--danger-color);
-            background-color: #fff5f5;
-        }
-
-        .vulnerability-row.Medium {
-            border-left-color: var(--warning-color);
-            background-color: #fffcf5;
+            border-left-color: var(--neon-pink);
+            background-color: rgba(255, 0, 255, 0.03) !important;
         }
 
         .code-block {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
-            padding: 1rem;
-            border-radius: 0.25rem;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.9rem;
-            overflow-x: auto;
+            background-color: #000;
+            border: 1px solid #333;
+            color: #00ff00;
+            padding: 1.5rem;
+            border-radius: 0;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
         }
 
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
+        .table {
+            color: #ccc;
+        }
+
+        .table-light {
+            background-color: #1a1f26 !important;
+            color: var(--neon-blue);
+            border-bottom: 2px solid var(--neon-blue);
+        }
+
+        .list-group-item {
+            background-color: transparent;
+            color: #bbb;
+            border-color: rgba(0, 242, 255, 0.1);
+        }
+
+        .alert-light {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ddd;
         }
     </style>
 </head>
@@ -124,8 +165,22 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">
-                <i class="bi bi-shield-lock-fill me-2"></i>VIP SQLi Scanner
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <svg width="30" height="30" viewBox="0 0 200 200" class="me-2">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00f2ff;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#0066ff;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M100 20 L160 50 L160 110 C160 150 100 180 100 180 C100 180 40 150 40 110 L40 50 Z"
+                        fill="none" stroke="url(#grad1)" stroke-width="15" />
+                    <ellipse cx="100" cy="70" rx="40" ry="15" fill="none" stroke="url(#grad1)" stroke-width="8" />
+                    <path d="M60 70 L60 130 C60 145 140 145 140 130 L140 70" fill="none" stroke="url(#grad1)"
+                        stroke-width="8" />
+                    <ellipse cx="100" cy="130" rx="40" ry="15" fill="none" stroke="url(#grad1)" stroke-width="8" />
+                </svg>
+                VIP SQLi Scanner
             </a>
             <span class="navbar-text ms-auto text-light">
                 Advanced Edition v{{ scan_info.version }}
@@ -313,7 +368,7 @@
 
         <footer class="mt-5 mb-3 text-center text-muted small">
             <p>Generated by VIP SQLi Scanner Advanced Edition v{{ scan_info.version }}</p>
-            <p>&copy; 2025 VIPHacker100</p>
+            <p>&copy; 2026 VIPHacker100</p>
         </footer>
     </div>
 

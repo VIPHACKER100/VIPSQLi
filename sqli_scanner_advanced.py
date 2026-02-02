@@ -400,52 +400,62 @@ def load_payloads_from_file(filepath: str = "payloads.txt") -> Dict[str, List[st
 # -------------------------------------------------------------------------
 
 def print_banner():
-    """Display modern banner with Rich"""
+    """Display modern cyberpunk banner with Rich"""
     banner_content = Text()
-    banner_content.append("VIP SQLi Scanner", style="bold cyan")
-    banner_content.append(" - ", style="white")
-    banner_content.append(f"Advanced Edition v{VERSION}", style="bold magenta")
-    banner_content.append("\n")
-    banner_content.append("Professional SQL Injection Triage Tool", style="italic yellow")
+    
+    # Futuristic Glitchy Title
+    banner_content.append("───[ ", style="bright_black")
+    banner_content.append("VIP_SQLI_SCANNER_v2.2", style="bold cyan")
+    banner_content.append(" ]───", style="bright_black")
     banner_content.append("\n\n")
-    banner_content.append("✨ New Features (v2.2): ", style="bold green")
-    banner_content.append("ML Engine | Plugin System | Web Dashboard | Cloud Sync", style="dim")
-    banner_content.append("\n\n")
-    banner_content.append("GitHub: ", style="dim")
-    banner_content.append(GITHUB_URL, style="bold blue underline")
+    
+    banner_content.append(">> SYSTEM_READY: ", style="dim white")
+    banner_content.append("OPERATIONAL", style="bold green")
     banner_content.append("\n")
-    banner_content.append("Website: ", style="dim")
-    banner_content.append(WEBSITE_URL, style="bold blue underline")
+    banner_content.append(">> PROTOCOL: ", style="dim white")
+    banner_content.append("CYBER_TRIAGE", style="bold magenta")
+    banner_content.append("\n\n")
+    
+    banner_content.append("[", style="dim")
+    banner_content.append(" ML_DETECTOR ", style="bold cyan")
+    banner_content.append("][", style="dim")
+    banner_content.append(" PLUGIN_SYST ", style="bold magenta")
+    banner_content.append("][", style="dim")
+    banner_content.append(" LIVE_DASH ", style="bold yellow")
+    banner_content.append("]", style="dim")
+    banner_content.append("\n\n")
+    
+    banner_content.append("NET_LINK: ", style="dim")
+    banner_content.append(GITHUB_URL, style="blue underline")
     
     panel = Panel(
         banner_content,
-        box=box.DOUBLE,
-        border_style="cyan",
-        padding=(1, 2)
+        box=box.ASCII2,
+        border_style="magenta",
+        padding=(1, 4),
+        subtitle="[dim]EST 2026.viphacker100[/dim]"
     )
     console.print(panel)
     console.print()
 
 def create_stats_panel():
-    """Create live stats panel"""
+    """Create cyberpunk live stats panel"""
     elapsed = int(stats.elapsed())
     rps = stats.requests_per_second()
     
     stats_table = Table(show_header=False, box=None, padding=(0, 2))
-    stats_table.add_column(style="cyan")
+    stats_table.add_column(style="magenta")
     stats_table.add_column(style="bold white")
     
-    stats_table.add_row("Total URLs:", str(stats.total))
-    stats_table.add_row("Scanned:", f"[green]{stats.scanned}[/green]")
-    stats_table.add_row("Vulnerable:", f"[red]{stats.vulnerable}[/red]")
-    stats_table.add_row("Safe:", f"[green]{stats.safe}[/green]")
-    stats_table.add_row("Excluded:", f"[yellow]{stats.excluded}[/yellow]")
-    stats_table.add_row("Errors:", f"[red]{stats.errors}[/red]")
-    stats_table.add_row("WAF Detected:", f"[yellow]{stats.waf_detected}[/yellow]")
-    stats_table.add_row("Elapsed:", f"{elapsed}s")
-    stats_table.add_row("Speed:", f"{rps:.2f} req/s")
+    stats_table.add_row("NETWORK_TOTAL:", str(stats.total))
+    stats_table.add_row("BYPASSED_WAF:", f"[bold yellow]{stats.waf_detected}[/bold yellow]")
+    stats_table.add_row("VULNERABILITIES:", f"[bold red blink]CRITICAL_{stats.vulnerable}[/bold red blink]")
+    stats_table.add_row("CLEAN_NODES:", f"[bold cyan]{stats.safe}[/bold cyan]")
+    stats_table.add_row("PACKET_ERRORS:", f"[red]{stats.errors}[/red]")
+    stats_table.add_row("TIME_ELAPSED:", f"{elapsed}s")
+    stats_table.add_row("FREQ_HZ:", f"{rps:.2f} rps")
     
-    return Panel(stats_table, title="[bold cyan]Scan Statistics[/bold cyan]", border_style="cyan")
+    return Panel(stats_table, title="[bold magenta]SYS_METRICS[/bold magenta]", border_style="cyan", box=box.SQUARE)
 
 def display_result_table(results):
     """Display results in a beautiful table"""

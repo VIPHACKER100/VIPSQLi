@@ -46,6 +46,12 @@ Scans for **50+ SQL error patterns** across:
 - **SQLite**: `sqlite3.OperationalError`, `System.Data.SQLite`
 - **DB2**: `SQLCODE`, `DB2 SQL error`
 
+### Step 5: Premium Branding & Dashboard
+Visual excellence for professional delivery:
+- **Custom SVG Logo**: Integrated into Dashboard and PDF reports.
+- **Real-time Web UI**: Live visualization of scan progress.
+- **Graded PDF Reports**: Clean, executive-level documentation.
+
 ## 📦 Installation
 
 ```bash

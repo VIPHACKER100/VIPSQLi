@@ -194,9 +194,9 @@ This tool is for **educational and authorized security testing only**.
 
 ---
 
-**Version**: 2.1 (Advanced Edition)  
+**Version**: 2.2 (Advanced Edition)  
 **Status**: Production Ready  
-**Quality**: Enterprise Grade  
+**Quality**: Enterprise Grade (Cyberpunk Edition)  
 **UI/UX**: Modern & Professional  
 
-🔥 **Powered by the 30-Second Framework** 🔥
+🔥 **Powered by the 30-Second Framework - EST 2026** 🔥
