@@ -8,6 +8,7 @@
 
 A next-generation, high-performance security tool for automated SQLi discovery. v3.0 introduces machine learning scoring, boolean-based blind detection, and an enterprise dashboard with distributed scanning support.
 
+<img width="745" height="393" alt="image" src="https://github.com/user-attachments/assets/6c8878c5-6da8-4d9a-8a16-38237cce48c2" />
 ---
 
 **🔗 Links:**
@@ -73,6 +74,7 @@ python sqli_scanner_advanced.py -l urls.txt --threads 20 --boolean --ml --sarif 
 | `--dashboard` | Launch the Enterprise Web Dashboard (v4.0) |
 
 ---
+
 
 ## 🖥️ Enterprise Web Dashboard (v4.0+)
 
