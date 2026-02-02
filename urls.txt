@@ -17,3 +17,5 @@ http://example.com/account.php?uid=10
 # Static files (will be auto-skipped)
 http://example.com/style.css
 http://example.com/logo.png
+
+python sqli_scanner_advanced.py -u "http://testphp.vulnweb.com/listproducts.php?cat=1" --ml

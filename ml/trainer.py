@@ -10,8 +10,12 @@ import json
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
+try:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    VISUALIZATION_AVAILABLE = True
+except ImportError:
+    VISUALIZATION_AVAILABLE = False
 
 logger = logging.getLogger("vipsqli.trainer")
 
@@ -207,6 +211,9 @@ class ModelTrainer:
     
     def visualize_performance(self, detector: MLDetector, X_val: np.ndarray, y_val: np.ndarray):
         """Create performance visualization"""
+        if not VISUALIZATION_AVAILABLE:
+            logger.warning("Visualization libraries (matplotlib/seaborn) not available. Skipping plot generation.")
+            return
         try:
             import matplotlib
             matplotlib.use('Agg')  # Non-interactive backend

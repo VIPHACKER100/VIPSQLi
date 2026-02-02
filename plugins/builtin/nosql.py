@@ -15,7 +15,7 @@ import json
 import logging
 from typing import Tuple, Optional, Dict, Any, List
 from urllib.parse import urlencode
-from plugins.base import PluginBase
+from plugins.base import PluginBase, PluginMetadata, PluginPriority
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +28,15 @@ class NoSQLPlugin(PluginBase):
     MAX_RETRIES = 2
     
     @property
-    def name(self) -> str:
-        return "NoSQL Injection"
-    
-    @property
-    def version(self) -> str:
-        return "2.0.0"
-    
-    @property
-    def description(self) -> str:
-        return "Comprehensive NoSQL injection vulnerability detection (MongoDB, CouchDB, etc.)"
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="NoSQL Injection",
+            version="2.0.0",
+            author="VIPHacker100",
+            description="Comprehensive NoSQL injection vulnerability detection (MongoDB, CouchDB, etc.)",
+            priority=PluginPriority.NORMAL,
+            tags=["nosql", "mongodb", "injection"]
+        )
     
     def supports_url(self, url: str) -> bool:
         """

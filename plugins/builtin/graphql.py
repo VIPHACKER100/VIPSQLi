@@ -14,7 +14,7 @@ import requests
 import json
 import logging
 from typing import Tuple, Optional, Dict, Any, List
-from plugins.base import PluginBase
+from plugins.base import PluginBase, PluginMetadata, PluginPriority
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +27,15 @@ class GraphQLPlugin(PluginBase):
     MAX_RETRIES = 2
     
     @property
-    def name(self) -> str:
-        return "GraphQL Injection"
-    
-    @property
-    def version(self) -> str:
-        return "2.0.0"
-    
-    @property
-    def description(self) -> str:
-        return "Comprehensive GraphQL security vulnerability detection"
+    def metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            name="GraphQL Injection",
+            version="2.0.0",
+            author="VIPHacker100",
+            description="Comprehensive GraphQL security vulnerability detection",
+            priority=PluginPriority.NORMAL,
+            tags=["graphql", "api", "injection"]
+        )
     
     def supports_url(self, url: str) -> bool:
         """Check if URL is likely a GraphQL endpoint."""

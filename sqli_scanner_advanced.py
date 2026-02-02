@@ -1716,11 +1716,18 @@ Examples:
         console.print("\n[bold cyan]🎨 VIP SQLi Scanner - Interactive Setup[/bold cyan]\n")
         
         # Target Selection
-        target_choice = Prompt.ask("Choose input type", choices=["Single URL", "URL List"], default="Single URL")
-        if target_choice == "Single URL":
-            args.url = Prompt.ask("Enter target URL")
-            while not args.url:
-                args.url = Prompt.ask("Enter target URL")
+        console.print("[bold yellow]Step 1: Target Selection[/bold yellow]")
+        console.print("  [1] Single URL (Direct scan)")
+        console.print("  [2] URL List (Batch scan from file)")
+        
+        target_choice = Prompt.ask("\nChoose input type", choices=["1", "2"], default="1")
+        
+        if target_choice == "1":
+            args.url = Prompt.ask("Enter target URL (e.g., http://example.com/page.php?id=1)")
+            while not args.url or not (args.url.startswith('http://') or args.url.startswith('https://')):
+                if args.url:
+                    console.print("[red]✗[/red] Invalid URL format. Must start with http:// or https://")
+                args.url = Prompt.ask("Enter valid target URL")
         else:
             args.list = Prompt.ask("Enter path to your list file (e.g., urls.txt)")
             while not args.list or not os.path.exists(args.list):
@@ -1729,23 +1736,32 @@ Examples:
                 args.list = Prompt.ask("Enter valid path to list file")
 
         # Scan Mode
-        args.mode = Prompt.ask("Select scan mode", choices=['fast', 'balanced', 'deep', 'stealth'], default='balanced')
+        console.print("\n[bold yellow]Step 2: Scan Mode[/bold yellow]")
+        console.print("  [fast]      Minimal testing, high speed")
+        console.print("  [balanced]  Standard balance (Recommended)")
+        console.print("  [deep]      Thorough testing, more payloads")
+        console.print("  [stealth]   Slow paced to avoid detection")
+        
+        args.mode = Prompt.ask("\nSelect scan mode", choices=['fast', 'balanced', 'deep', 'stealth'], default='balanced')
         
         # Threads
-        args.threads = int(Prompt.ask("Number of threads", default="15"))
+        console.print("\n[bold yellow]Step 3: Performance[/bold yellow]")
+        args.threads = int(Prompt.ask("Number of threads (1-50)", default="15"))
         
         # Detection Capabilities
+        console.print("\n[bold yellow]Step 4: Detection Engines[/bold yellow]")
         args.boolean = Confirm.ask("Enable Boolean-Based Blind detection?", default=True)
         args.ml = Confirm.ask("Enable ML-Powered scoring?", default=True)
         args.time_based = Confirm.ask("Enable Time-Based Blind detection? (Slower)", default=False)
         
         # Exporting
+        console.print("\n[bold yellow]Step 5: Reporting[/bold yellow]")
         if Confirm.ask("Generate HTML Report?", default=True):
             args.html = Prompt.ask("Enter filename for HTML report", default="report.html")
             if not args.html.endswith('.html'):
                 args.html += '.html'
         
-        console.print("\n[green]✓ Setup complete! Launching scan...[/green]\n")
+        console.print("\n[bold green]🚀 Setup complete! Launching scan...[/bold green]\n")
     
     # Disable color if requested
     if args.no_color:

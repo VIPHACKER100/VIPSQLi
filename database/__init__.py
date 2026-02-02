@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 # Import all models
-from .models_v3 import (
+from .models import (
     Base,
     User,
     ScanHistory,
