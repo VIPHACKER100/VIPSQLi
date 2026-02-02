@@ -2010,3 +2010,101 @@ desc=
 # 3. Organize patterns by category for maintainability
 # 4. Consider adding regex versions for complex patterns
 # 5. Regularly update based on new technologies and patterns observed
+# VIP SQLi Scanner - Exclusion Patterns
+# URLs containing these patterns will be skipped during scanning
+# This helps avoid scanning static resources and known safe paths
+
+# Static Asset Directories
+/static/
+/assets/
+/public/
+/resources/
+
+# CSS and JavaScript
+/css/
+/js/
+/javascript/
+/styles/
+/scripts/
+
+# Image Directories
+/images/
+/img/
+/pics/
+/pictures/
+/media/
+/uploads/
+/gallery/
+
+# Font Directories
+/fonts/
+/webfonts/
+
+# WordPress Specific
+/wp-content/
+/wp-includes/
+/wp-admin/css/
+/wp-admin/js/
+
+# Common Frameworks/Libraries
+/node_modules/
+/bower_components/
+/vendor/
+/lib/
+/libs/
+
+# Build Directories
+/dist/
+/build/
+/cache/
+/temp/
+/tmp/
+
+# Documentation
+/docs/
+/documentation/
+/manual/
+/help/
+
+# CDN Domains (add your CDN domains here)
+cdn.example.com
+static.example.com
+assets.example.com
+
+# File Extensions (already handled by scanner, but can add specific cases)
+.css
+.js
+.jpg
+.png
+.gif
+.svg
+.woff
+.ttf
+
+# API Endpoints (if you want to skip them)
+# /api/v1/
+# /api/v2/
+
+# Admin Panels (if you want to skip them)
+# /admin/
+# /administrator/
+
+# Download Directories
+/downloads/
+/files/
+
+# Theme Directories
+/theme/
+/themes/
+/templates/
+/skins/
+
+# Common Safe Paths
+/sitemap.xml
+/robots.txt
+/favicon.ico
+/.well-known/
+
+# Add your custom exclusions below:
+# example.com/safe-path/
+# /internal/tools/

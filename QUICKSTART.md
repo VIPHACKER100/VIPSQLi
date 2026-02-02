@@ -1,86 +1,64 @@
-# 🚀 Quick Start Guide - VIP SQLi Scanner Advanced
+# 🚀 Quick Start Guide - VIP SQLi Scanner v3.0
 
 ## Installation
 
 ```bash
 cd VIPSQLi
-pip install -r requirements.txt # Installs all v2.2 dependencies
+python -m pip install -r requirements.txt
 ```
 
 ## Basic Usage
 
-### 1. Single URL Scan
+### 1. Single URL Scan (v3.0 Advanced)
 ```bash
-python sqli_scanner_advanced.py "http://example.com/product.php?id=1"
+python sqli_scanner_advanced.py -u "http://target.com/page.php?id=1" --boolean --ml
 ```
 
 ### 2. Batch Scan (Recommended)
 ```bash
-python sqli_scanner_advanced.py -l urls.txt
+# High-speed scan with all the bells and whistles
+python sqli_scanner_advanced.py -l urls.txt -t 20 --boolean --ml --sarif report.sarif
 ```
 
-### 3. Full-Featured Scan
-```bash
-python sqli_scanner_advanced.py \
-  -l urls.txt \
-  -e exclusions.txt \
-  --threads 10 \
-  --time-based \
-  --ml \
-  --pdf \
-  -o results.json \
-  --csv results.csv
+### 3. Launch the Cyberpunk Dashboard (v4.0 Backend)
+```powershell
+python dashboard/app.py
 ```
-
-### 4. Interactive Mode (Beginner-Friendly)
-```bash
-python sqli_scanner_advanced.py -i
-```
+*Access via browser: `http://localhost:5000`*
 
 ## Common Scenarios
 
-### Fast Scan (Skip Time-Based Detection)
+### Enterprise CI/CD Scan
 ```bash
-python sqli_scanner_advanced.py -l urls.txt --threads 10
+python sqli_scanner_advanced.py -l targets.txt --sarif scan_results.sarif --no-color
 ```
 
-### Thorough Scan (Enable All Detection)
+### Thorough Blind SQLi Scan
 ```bash
-python sqli_scanner_advanced.py -l urls.txt --time-based -v
+python sqli_scanner_advanced.py -l urls.txt --boolean --time-based -v
 ```
 
-### Export Results for Reporting
+### Ignore SSL Security Errors
 ```bash
-python sqli_scanner_advanced.py -l urls.txt -o report.json --csv report.csv
+python sqli_scanner_advanced.py -u "https://internal-dev.local" -k
 ```
 
 ## Tips
 
-- **Start with 5 threads**: `--threads 5` (default)
-- **Use exclusions**: Skip static files with `-e exclusions.txt`
-- **Enable time-based for blind SQLi**: Add `--time-based` flag
-- **Export for analysis**: Use `-o` for JSON and `--csv` for spreadsheets
+- **Use threads**: Default is 5, but you can go up to 50 for large lists: `-t 50`
+- **Enable ML Scoring**: Add `--ml` to filter out low-confidence "false positive" noise.
+- **Boolean vs Time-Based**: Boolean (`--boolean`) is faster and very reliable; Time-based (`--time-based`) is a great fallback for truly silent endpoints.
 
-## Comparison: Basic vs Advanced
+## Version Comparison
 
-| Command | Basic Version | Advanced Version |
-|---------|--------------|------------------|
-| Single URL | `python sqli_scanner.py URL` | `python sqli_scanner_advanced.py URL` |
-| Batch | `python sqli_scanner.py -l urls.txt` | `python sqli_scanner_advanced.py -l urls.txt --threads 10` |
-| Export | `python sqli_scanner.py -l urls.txt -o out.txt` | `python sqli_scanner_advanced.py -l urls.txt -o out.json --csv out.csv` |
-
-## What You Get
-
-✅ Beautiful modern UI with progress bars  
-✅ 5-10x faster with multi-threading  
-✅ ML-Powered detection (Random Forest) ⭐  
-✅ Real-time Web Dashboard ⭐  
-✅ Professional PDF Reporting ⭐  
-✅ Cloud Integrations (S3, Slack, Jira) ⭐  
-✅ Time-based blind SQLi detection  
-✅ Professional JSON/CSV reports  
-✅ Live statistics dashboard  
-✅ Color-coded results  
+| | v2.2 | v3.0 (Latest) |
+|---|---|---|
+| **Boolean Detection** | ❌ | ✅ High Precision |
+| **ML Scoring** | ⚠️ Partial | ✅ Fully Integrated |
+| **Reporting** | JSON/HTML | ✅ SARIF + PDF + HTML |
+| **Dashboard** | ❌ Basic | ✅ Cyberpunk v4.0 (Enterprise) |
+| **Authentication** | ❌ | ✅ GitHub SSO support |
+| **Distributed** | ❌ | ✅ Node Management System |
 
 ---
 

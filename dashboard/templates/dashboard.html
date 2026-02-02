@@ -1,315 +1,1389 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>VIP SQLi Scanner Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP SQLi Scanner v2.2 - Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --neon-blue: #00f2ff;
-            --neon-pink: #ff00ff;
-            --neon-yellow: #f3f315;
-            --obsidian: #0b0e14;
-            --grid-color: rgba(0, 242, 255, 0.05);
+            --primary-glow: #00f3ff;
+            --secondary-glow: #ff00ff;
+            --danger-glow: #ff003c;
+            --success-glow: #00ff9f;
+            --dark-bg: #050505;
+            --card-glass: rgba(15, 15, 15, 0.85);
+            --border-neon: rgba(0, 243, 255, 0.3);
         }
 
         body {
-            background-color: var(--obsidian);
+            background-color: var(--dark-bg);
+            background-image:
+                radial-gradient(circle at 20% 30%, rgba(0, 243, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 255, 0.05) 0%, transparent 40%);
             color: #e0e0e0;
-            font-family: 'Consolas', 'Monaco', monospace;
-            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-            background-size: 30px 30px;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        .card {
-            background-color: rgba(20, 24, 33, 0.9);
-            border: 1px solid var(--neon-blue);
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
-            border-radius: 0;
-            clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);
+        .main-container {
+            backdrop-filter: blur(10px);
+            background: var(--card-glass);
+            border: 1px solid var(--border-neon);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+            margin: 20px auto;
+            padding: 30px;
+            max-width: 1440px;
         }
 
-        h1,
-        h2,
-        h3,
-        h5,
-        h6 {
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--neon-blue);
-            text-shadow: 0 0 10px var(--neon-blue);
+        .stat-card {
+            background: rgba(30, 30, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 10px 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
         }
 
-        .badge {
-            border-radius: 0;
-            padding: 5px 12px;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-        }
-
-        .bg-primary {
-            background-color: transparent !important;
-            border: 1px solid var(--neon-blue);
-            color: var(--neon-blue) !important;
-        }
-
-        .bg-success {
-            background-color: transparent !important;
-            border: 1px solid #00ff00;
-            color: #00ff00 !important;
-        }
-
-        .bg-danger {
-            background-color: transparent !important;
-            border: 1px solid var(--neon-pink);
-            color: var(--neon-pink) !important;
-        }
-
-        .badge-vuln {
-            color: var(--neon-pink);
-            border: 1px solid var(--neon-pink);
-            background: rgba(255, 0, 255, 0.1);
-        }
-
-        .badge-safe {
-            color: var(--neon-blue);
-            border: 1px solid var(--neon-blue);
-            background: rgba(0, 242, 255, 0.1);
-        }
-
-        .progress {
-            background-color: #1a1f26;
-            border-radius: 0;
-            height: 10px !important;
-            border: 1px solid var(--neon-blue);
-        }
-
-        .progress-bar {
-            background-color: var(--neon-blue);
-            box-shadow: 0 0 10px var(--neon-blue);
-        }
-
-        .table {
-            color: #aaa;
-            border-color: rgba(0, 242, 255, 0.1);
-        }
-
-        .table-light {
-            background-color: #1a1f26 !important;
-            color: var(--neon-blue);
-            border: none;
-        }
-
-        .table-hover tbody tr:hover {
-            background-color: rgba(0, 242, 255, 0.05);
-            color: #fff;
-        }
-
-        #connection-status {
-            animation: pulse-glow 2s infinite;
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+            animation: pulse-glow 3s infinite;
         }
 
         @keyframes pulse-glow {
             0% {
-                opacity: 1;
+                opacity: 0.3;
             }
 
             50% {
-                opacity: 0.5;
-            }
-
-            100% {
                 opacity: 1;
             }
-        }
-
-        .glitch-text {
-            position: relative;
-            display: inline-block;
-        }
-
-        .glitch-text::after {
-            content: attr(data-text);
-            position: absolute;
-            left: 2px;
-            text-shadow: -1px 0 red;
-            background: var(--obsidian);
-            overflow: hidden;
-            clip: rect(0, 900px, 0, 0);
-            animation: noise-anim 2s infinite linear alternate-reverse;
-        }
-
-        @keyframes noise-anim {
-            0% {
-                clip: rect(10px, 9999px, 20px, 0);
-            }
-
-            20% {
-                clip: rect(30px, 9999px, 40px, 0);
-            }
-
-            40% {
-                clip: rect(50px, 9999px, 60px, 0);
-            }
-
-            60% {
-                clip: rect(70px, 9999px, 80px, 0);
-            }
-
-            80% {
-                clip: rect(90px, 9999px, 100px, 0);
-            }
 
             100% {
-                clip: rect(10px, 9999px, 20px, 0);
+                opacity: 0.3;
             }
+        }
+
+        .stat-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.1);
+            border-color: var(--primary-glow);
+        }
+
+        .stat-icon {
+            background: linear-gradient(45deg, var(--primary-glow), var(--secondary-glow));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+            font-size: 2.5rem;
+        }
+
+        .nav-custom {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 18px;
+            margin-bottom: 30px;
+        }
+
+        .btn-custom {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 12px;
+            padding: 10px 24px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-custom:hover {
+            background: var(--primary-glow);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .btn-success {
+            background: rgba(0, 255, 159, 0.1);
+            border-color: var(--success-glow);
+            color: var(--success-glow);
+        }
+
+        .btn-success:hover {
+            background: var(--success-glow);
+            box-shadow: 0 0 20px var(--success-glow);
+        }
+
+        .btn-danger {
+            background: rgba(255, 0, 60, 0.1);
+            border-color: var(--danger-glow);
+            color: var(--danger-glow);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger-glow);
+            box-shadow: 0 0 20px var(--danger-glow);
+        }
+
+        .chart-container {
+            background: rgba(20, 20, 20, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 25px;
+        }
+
+        #results-table {
+            background: rgba(10, 10, 10, 0.4);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .table {
+            color: #ccc;
+        }
+
+        .table-light {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: #fff !important;
+        }
+
+        .card {
+            background: rgba(20, 20, 20, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 18px;
+        }
+
+        .form-control,
+        .form-select {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 10px;
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            color: #fff;
+        }
+
+        .nav-tabs .nav-link {
+            color: #888;
+            border: none;
+        }
+
+        .nav-tabs .nav-link.active {
+            background: none;
+            color: var(--primary-glow);
+            border-bottom: 2px solid var(--primary-glow);
+        }
+
+        .progress-custom {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: 40px;
+            border-radius: 20px;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-glow), var(--secondary-glow)) !important;
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .vulnerability-detail {
+            background: rgba(255, 0, 60, 0.05);
+            border: 1px solid var(--danger-glow);
+            color: #ffccd5;
+        }
+
+        .safe-detail {
+            background: rgba(0, 255, 159, 0.05);
+            border: 1px solid var(--success-glow);
+            color: #ccffe8;
         }
     </style>
 </head>
 
 <body>
-    <div class="container mt-4">
-        <header class="mb-5 pb-3 border-bottom d-flex justify-content-between align-items-center"
-            style="border-color: var(--neon-blue) !important;">
-            <div class="d-flex align-items-center">
-                <img src="/static/logo.svg" alt="VIP Logo"
-                    style="height: 60px; margin-right: 20px; filter: drop-shadow(0 0 10px var(--neon-blue));">
-                <div>
-                    <h1 class="glitch-text" data-text="VIP_SQLI_SCANNER">VIP_SQLI_SCANNER</h1>
-                    <span class="badge bg-secondary">VERSION_2.2.0_STABLE</span>
-                </div>
-            </div>
-            <div id="connection-status" class="badge">SYS_ONLINE</div>
-        </header>
+    <!-- Notifications Container -->
+    <div id="notifications-container" class="notification"></div>
 
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <div class="card bg-primary">
-                    <div class="card-body">
-                        <h6>CORE_TARGETS</h6>
-                        <h2 id="total">0</h2>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Navigation -->
+            <div class="nav-custom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="text-white mb-0">
+                            <i class="bi bi-shield-check"></i> VIP SQLi Scanner v2.2
+                        </h1>
+                        <p class="text-white-50 mb-0">Professional SQL Injection Detection Dashboard</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if github_enabled %}
+                        <button class="btn btn-outline-light btn-custom" onclick="loginWithGithub()">
+                            <i class="bi bi-github"></i> GitHub Login
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-outline-light btn-custom" onclick="openSettings()">
+                            <i class="bi bi-gear"></i> Settings
+                        </button>
+                        <button class="btn btn-outline-light btn-custom" onclick="showHelp()">
+                            <i class="bi bi-question-circle"></i> Help
+                        </button>
+                        <button class="btn btn-light btn-custom" onclick="location.reload()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success">
-                    <div class="card-body">
-                        <h6>CLEAN_NODES</h6>
-                        <h2 id="safe">0</h2>
+
+            <!-- Stats Cards -->
+            <div class="row mt-4">
+                <div class="col-md-3">
+                    <div class="stat-card bg-primary text-white">
+                        <div class="stat-icon"><i class="bi bi-link-45deg"></i></div>
+                        <h6 class="text-uppercase">Total URLs</h6>
+                        <h2 class="mb-0" id="total-urls">0</h2>
+                        <small>Queued for scanning</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card bg-success text-white">
+                        <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+                        <h6 class="text-uppercase">Safe</h6>
+                        <h2 class="mb-0" id="safe-count">0</h2>
+                        <small>No vulnerabilities found</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card bg-danger text-white">
+                        <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                        <h6 class="text-uppercase">Vulnerable</h6>
+                        <h2 class="mb-0" id="vuln-count">0</h2>
+                        <small>Potential SQLi detected</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card bg-warning text-dark">
+                        <div class="stat-icon"><i class="bi bi-activity"></i></div>
+                        <h6 class="text-uppercase">Progress</h6>
+                        <h2 class="mb-0" id="progress-pct">0%</h2>
+                        <small id="scan-status">Ready to scan</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-danger">
-                    <div class="card-body">
-                        <h6>VULNERABILITIES</h6>
-                        <h2 id="vuln">0</h2>
+
+            <!-- Progress Bar -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="mb-3">
+                                <i class="bi bi-bar-chart-line"></i> Scan Progress
+                            </h5>
+                            <div class="mb-2">
+                                <strong>Current URL:</strong>
+                                <span id="current-url" class="text-muted">-</span>
+                            </div>
+                            <div class="progress progress-custom">
+                                <div id="progress-bar"
+                                    class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                                    role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0"
+                                    aria-valuemax="100">
+                                    0%
+                                </div>
+                            </div>
+                            <div class="mt-2 text-muted small">
+                                <span id="scanned-count">0</span> / <span id="total-count">0</span> URLs scanned
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card p-2" style="background: transparent;">
-                    <canvas id="chart"></canvas>
+
+            <!-- Charts and Recent Results -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="mb-3">
+                                <i class="bi bi-pie-chart"></i> Results Distribution
+                            </h5>
+                            <div class="chart-container">
+                                <canvas id="resultsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="mb-3">
+                                <i class="bi bi-clock-history"></i> Recent Results
+                                <button class="btn btn-sm btn-outline-primary float-end" onclick="exportResults('csv')">
+                                    <i class="bi bi-download"></i> Export
+                                </button>
+                            </h5>
+                            <div id="results-table">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>URL</th>
+                                            <th>Status</th>
+                                            <th>Risk</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="results-body">
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4">
+                                                <i class="bi bi-inbox"></i><br>
+                                                No results yet. Start a scan to see results.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="mt-4 mb-5">
-            <h6 class="mb-2">DATA_STREAM_PROGRESS</h6>
-            <div class="progress">
-                <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
-            </div>
-        </div>
+            <!-- Control Panel -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="mb-4">
+                                <i class="bi bi-play-circle"></i> Scan Control Panel
+                            </h5>
 
-        <div class="card">
-            <div class="card-header"
-                style="background: rgba(0, 242, 255, 0.1); border-bottom: 1px solid var(--neon-blue);">
-                <h5 class="mb-0">LIVE_DATA_FEED</h5>
+                            <!-- Tabs -->
+                            <ul class="nav nav-tabs mb-3" id="scanTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="manual-tab" data-bs-toggle="tab"
+                                        data-bs-target="#manual" type="button">
+                                        <i class="bi bi-pencil"></i> Manual Input
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file"
+                                        type="button">
+                                        <i class="bi bi-file-earmark-text"></i> File Upload
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="history-tab" data-bs-toggle="tab"
+                                        data-bs-target="#history" type="button">
+                                        <i class="bi bi-clock-history"></i> Scan History
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="nodes-tab" data-bs-toggle="tab" data-bs-target="#nodes"
+                                        type="button">
+                                        <i class="bi bi-server"></i> Distributed Nodes
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="scanTabContent">
+                                <!-- Manual Input Tab -->
+                                <div class="tab-pane fade show active" id="manual" role="tabpanel">
+                                    <div class="mb-3">
+                                        <label for="urls-input" class="form-label fw-bold">
+                                            <i class="bi bi-list-ul"></i> Enter URLs (one per line)
+                                        </label>
+                                        <textarea id="urls-input" class="form-control" rows="6"
+                                            placeholder="http://example.com/product.php?id=1&#10;http://example.com/search.php?q=test&#10;http://example.com/user.php?uid=5"></textarea>
+                                        <div class="form-text">
+                                            <i class="bi bi-info-circle"></i>
+                                            Supports HTTP/HTTPS URLs with parameters
+                                        </div>
+                                    </div>
+
+                                    <!-- Scan Options -->
+                                    <div class="settings-section">
+                                        <h6 class="mb-3"><i class="bi bi-sliders"></i> Scan Options</h6>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="mlEnabled"
+                                                        checked>
+                                                    <label class="form-check-label" for="mlEnabled">
+                                                        Enable ML Detection
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox"
+                                                        id="timeBasedEnabled">
+                                                    <label class="form-check-label" for="timeBasedEnabled">
+                                                        Time-Based Detection
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="pluginsEnabled"
+                                                        checked>
+                                                    <label class="form-check-label" for="pluginsEnabled">
+                                                        Enable Plugins
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-6">
+                                                <label for="threadCount" class="form-label">Threads</label>
+                                                <input type="range" class="form-range" id="threadCount" min="1"
+                                                    max="100" value="25">
+                                                <small class="text-muted">Threads: <span
+                                                        id="threadValue">25</span></small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="scanProfile" class="form-label">Profile</label>
+                                                <select class="form-select" id="scanProfile">
+                                                    <option value="balanced" selected>Balanced</option>
+                                                    <option value="aggressive">Aggressive</option>
+                                                    <option value="stealth">Stealth</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- File Upload Tab -->
+                                <div class="tab-pane fade" id="file" role="tabpanel">
+                                    <div class="file-upload-area" id="dropZone" ondrop="handleDrop(event)"
+                                        ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                                        <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #94a3b8;"></i>
+                                        <h5 class="mt-3">Drag & Drop URL File</h5>
+                                        <p class="text-muted">or click to browse</p>
+                                        <input type="file" id="fileInput" accept=".txt,.csv" style="display: none;"
+                                            onchange="handleFileSelect(event)">
+                                        <button class="btn btn-primary btn-custom mt-2"
+                                            onclick="document.getElementById('fileInput').click()">
+                                            <i class="bi bi-folder2-open"></i> Browse Files
+                                        </button>
+                                        <div class="mt-3 text-muted small">
+                                            Supported formats: .txt, .csv
+                                        </div>
+                                    </div>
+                                    <div id="file-preview" class="mt-3"></div>
+                                </div>
+
+                                <!-- Scan History Tab -->
+                                <div class="tab-pane fade" id="history" role="tabpanel">
+                                    <div id="scan-history-list">
+                                        <div class="text-center text-muted py-4">
+                                            <i class="bi bi-clock-history" style="font-size: 3rem;"></i>
+                                            <p class="mt-3">No scan history available</p>
+                                            <button class="btn btn-outline-primary btn-custom"
+                                                onclick="loadScanHistory()">
+                                                <i class="bi bi-arrow-clockwise"></i> Refresh History
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Distributed Nodes Tab -->
+                                <div class="tab-pane fade" id="nodes" role="tabpanel">
+                                    <div class="settings-section">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0"><i class="bi bi-cpu"></i> Active Scan Nodes</h6>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="loadNodes()">
+                                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                                            </button>
+                                        </div>
+                                        <div id="nodes-list" class="row g-3">
+                                            <div class="col-12 text-center text-muted py-3">
+                                                No distributed nodes detected.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="action-buttons mt-4">
+                                <button id="start-btn" class="btn btn-success btn-custom" onclick="startScan()">
+                                    <i class="bi bi-play-fill"></i> Start Scan
+                                </button>
+                                <button id="pause-btn" class="btn btn-warning btn-custom d-none" onclick="pauseScan()">
+                                    <i class="bi bi-pause-fill"></i> Pause
+                                </button>
+                                <button id="resume-btn" class="btn btn-info btn-custom d-none" onclick="resumeScan()">
+                                    <i class="bi bi-play-fill"></i> Resume
+                                </button>
+                                <button id="stop-btn" class="btn btn-danger btn-custom d-none" onclick="stopScan()">
+                                    <i class="bi bi-stop-fill"></i> Stop Scan
+                                </button>
+                                <button class="btn btn-secondary btn-custom" onclick="clearResults()">
+                                    <i class="bi bi-trash"></i> Clear Results
+                                </button>
+                                <button class="btn btn-primary btn-custom" onclick="openExportModal()">
+                                    <i class="bi bi-download"></i> Export Report
+                                </button>
+                                <button class="btn btn-outline-primary btn-custom" onclick="loadFromHistory()">
+                                    <i class="bi bi-clock-history"></i> Load Previous
+                                </button>
+                                <button class="btn btn-outline-secondary btn-custom" onclick="openScheduler()">
+                                    <i class="bi bi-calendar-event"></i> Schedule Scan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 500px">
-                    <table class="table mb-0">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th>CLOCK</th>
-                                <th>TARGET_ACCESS_POINT</th>
-                                <th>VERDICT</th>
-                                <th>METADATA</th>
-                            </tr>
-                        </thead>
-                        <tbody id="results-body">
-                            <!-- Rows added dynamically -->
-                        </tbody>
-                    </table>
+
+            <!-- Activity Timeline -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="mb-4">
+                                <i class="bi bi-activity"></i> Activity Timeline
+                                <button class="btn btn-sm btn-outline-secondary float-end" onclick="clearTimeline()">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </button>
+                            </h5>
+                            <div id="activity-timeline" style="max-height: 300px; overflow-y: auto;">
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-hourglass-split"></i>
+                                    <p class="mb-0">Activity log will appear here during scans</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content modal-custom">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-gear"></i> Scanner Settings
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h6><i class="bi bi-cpu"></i> Performance</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Max Concurrent Requests</label>
+                                <input type="number" class="form-control" id="maxConcurrent" value="20">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Request Timeout (seconds)</label>
+                                <input type="number" class="form-control" id="requestTimeout" value="10">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h6><i class="bi bi-shield-check"></i> Detection Settings</h6>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="wafDetection" checked>
+                            <label class="form-check-label" for="wafDetection">WAF Detection</label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="errorBasedDetection" checked>
+                            <label class="form-check-label" for="errorBasedDetection">Error-Based Detection</label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="booleanBasedDetection">
+                            <label class="form-check-label" for="booleanBasedDetection">Boolean-Based Detection</label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h6><i class="bi bi-cloud"></i> Cloud Integrations</h6>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="jiraIntegration">
+                            <label class="form-check-label" for="jiraIntegration">Enable Jira Export</label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="slackIntegration">
+                            <label class="form-check-label" for="slackIntegration">Enable Slack Notifications</label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="s3Integration">
+                            <label class="form-check-label" for="s3Integration">Enable S3 Upload</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSettings()">
+                        <i class="bi bi-check-lg"></i> Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal fade" id="exportModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-custom">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-download"></i> Export Results
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Choose export format:</p>
+                    <div class="export-options">
+                        <div class="export-card" onclick="exportResults('json')">
+                            <i class="bi bi-filetype-json text-primary"></i>
+                            <h6>JSON</h6>
+                            <small class="text-muted">Machine-readable</small>
+                        </div>
+                        <div class="export-card" onclick="exportResults('csv')">
+                            <i class="bi bi-filetype-csv text-success"></i>
+                            <h6>CSV</h6>
+                            <small class="text-muted">Spreadsheet</small>
+                        </div>
+                        <div class="export-card" onclick="exportResults('html')">
+                            <i class="bi bi-filetype-html text-danger"></i>
+                            <h6>HTML</h6>
+                            <small class="text-muted">Visual report</small>
+                        </div>
+                        <div class="export-card" onclick="exportResults('pdf')">
+                            <i class="bi bi-filetype-pdf text-warning"></i>
+                            <h6>PDF</h6>
+                            <small class="text-muted">Executive summary</small>
+                        </div>
+                    </div>
+
+                    <div class="settings-section mt-3">
+                        <h6>Export Options</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="includeScreenshots" checked>
+                            <label class="form-check-label" for="includeScreenshots">
+                                Include request/response details
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="includeSafeUrls">
+                            <label class="form-check-label" for="includeSafeUrls">
+                                Include safe URLs
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="includeTimestamps" checked>
+                            <label class="form-check-label" for="includeTimestamps">
+                                Include timestamps
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Detail Modal -->
+    <div class="modal fade" id="resultDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content modal-custom">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-info-circle"></i> Vulnerability Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="resultDetailContent">
+                    <!-- Content populated by JavaScript -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary" onclick="copyResultDetails()">
+                        <i class="bi bi-clipboard"></i> Copy Details
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="exportSingleResult()">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content modal-custom">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-question-circle"></i> Help & Documentation
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6><i class="bi bi-book"></i> Quick Start Guide</h6>
+                    <ol>
+                        <li>Enter URLs in the text area or upload a file</li>
+                        <li>Configure scan options (threads, ML, plugins)</li>
+                        <li>Click "Start Scan" to begin</li>
+                        <li>Monitor real-time progress</li>
+                        <li>Review results and export reports</li>
+                    </ol>
+
+                    <h6 class="mt-4"><i class="bi bi-sliders"></i> Scan Profiles</h6>
+                    <ul>
+                        <li><strong>Balanced:</strong> Default settings, good for most scans</li>
+                        <li><strong>Aggressive:</strong> Fast scanning with high threads</li>
+                        <li><strong>Stealth:</strong> Slow, careful scanning to avoid detection</li>
+                    </ul>
+
+                    <h6 class="mt-4"><i class="bi bi-lightbulb"></i> Tips</h6>
+                    <ul>
+                        <li>Enable ML for better accuracy</li>
+                        <li>Use Time-Based detection for blind SQLi</li>
+                        <li>Export results regularly for backup</li>
+                        <li>Check WAF detection if scans fail</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <a href="https://github.com/viphacker100" class="btn btn-outline-primary" target="_blank">
+                        <i class="bi bi-github"></i> GitHub
+                    </a>
+                    <a href="https://viphacker100.com" class="btn btn-outline-primary" target="_blank">
+                        <i class="bi bi-globe"></i> Website
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Initialize Socket.IO
         const socket = io();
-        const ctx = document.getElementById('chart').getContext('2d');
-        const chart = new Chart(ctx, {
+
+        // Global state
+        let scanResults = [];
+        let currentScanId = null;
+        let isPaused = false;
+
+        // Initialize Chart
+        const ctx = document.getElementById('resultsChart').getContext('2d');
+        const resultsChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Safe', 'Vulnerable'],
+                labels: ['Safe', 'Vulnerable', 'Errors'],
                 datasets: [{
-                    data: [0, 0],
-                    backgroundColor: ['#28a745', '#dc3545'],
+                    data: [0, 0, 0],
+                    backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
                     borderWidth: 0
                 }]
             },
-            options: { cutout: '70%', responsive: true, plugins: { legend: { display: false } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                }
+            }
         });
 
-        socket.on('connect', () => {
-            document.getElementById('connection-status').className = 'badge bg-success';
-            document.getElementById('connection-status').textContent = 'Connected';
+        // Thread slider update
+        document.getElementById('threadCount').addEventListener('input', function (e) {
+            document.getElementById('threadValue').textContent = e.target.value;
         });
 
-        socket.on('disconnect', () => {
-            document.getElementById('connection-status').className = 'badge bg-danger';
-            document.getElementById('connection-status').textContent = 'Disconnected';
+        // Socket.IO event handlers
+        socket.on('scan_update', function (data) {
+            updateStats(data);
+            updateProgress(data);
+            if (data.latest_result) {
+                addResultRow(data.latest_result);
+                addTimelineEvent(data.latest_result);
+            }
         });
 
-        socket.on('scan_update', (data) => {
-            // Update stats
-            document.getElementById('total').textContent = data.total;
-            document.getElementById('safe').textContent = data.stats.safe;
-            document.getElementById('vuln').textContent = data.stats.vulnerable;
+        socket.on('scan_complete', function (data) {
+            updateButtonStates('complete');
+            showNotification('Scan Complete', 'Scan finished successfully', 'success');
+            addTimelineEvent({ type: 'complete', message: 'Scan completed' });
+        });
 
-            // Update Progress
-            const pct = data.total > 0 ? (data.progress / data.total) * 100 : 0;
-            document.getElementById('progress-bar').style.width = pct + '%';
+        socket.on('scan_error', function (data) {
+            showNotification('Error', data.message, 'danger');
+            addTimelineEvent({ type: 'error', message: data.message });
+        });
 
-            // Update Chart
-            chart.data.datasets[0].data = [data.stats.safe, data.stats.vulnerable];
-            chart.update();
+        // Start scan
+        function startScan() {
+            const urls = document.getElementById('urls-input').value.split('\n')
+                .map(u => u.trim())
+                .filter(u => u.length > 0);
 
-            // Add Row
+            if (urls.length === 0) {
+                showNotification('Error', 'Please enter at least one URL', 'warning');
+                return;
+            }
+
+            const config = {
+                urls: urls,
+                ml_enabled: document.getElementById('mlEnabled').checked,
+                time_based: document.getElementById('timeBasedEnabled').checked,
+                plugins_enabled: document.getElementById('pluginsEnabled').checked,
+                threads: parseInt(document.getElementById('threadCount').value),
+                profile: document.getElementById('scanProfile').value
+            };
+
+            fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showNotification('Error', data.error, 'danger');
+                    } else {
+                        currentScanId = data.scan_id;
+                        updateButtonStates('running');
+                        clearResultsTable();
+                        showNotification('Scan Started', 'Scanning ' + urls.length + ' URLs', 'info');
+                        addTimelineEvent({ type: 'start', message: 'Scan started with ' + urls.length + ' URLs' });
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error', 'Failed to start scan', 'danger');
+                });
+        }
+
+        // Pause scan
+        function pauseScan() {
+            fetch('/api/pause', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    isPaused = true;
+                    updateButtonStates('paused');
+                    showNotification('Scan Paused', 'You can resume anytime', 'info');
+                    addTimelineEvent({ type: 'pause', message: 'Scan paused' });
+                });
+        }
+
+        // Resume scan
+        function resumeScan() {
+            fetch('/api/resume', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    isPaused = false;
+                    updateButtonStates('running');
+                    showNotification('Scan Resumed', 'Continuing scan', 'info');
+                    addTimelineEvent({ type: 'resume', message: 'Scan resumed' });
+                });
+        }
+
+        // Stop scan
+        function stopScan() {
+            if (confirm('Are you sure you want to stop the scan?')) {
+                fetch('/api/stop', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        updateButtonStates('complete');
+                        showNotification('Scan Stopped', 'Scan was stopped by user', 'warning');
+                        addTimelineEvent({ type: 'stop', message: 'Scan stopped by user' });
+                    });
+            }
+        }
+
+        // Update button states
+        function updateButtonStates(state) {
+            const startBtn = document.getElementById('start-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const resumeBtn = document.getElementById('resume-btn');
+            const stopBtn = document.getElementById('stop-btn');
+
+            startBtn.classList.add('d-none');
+            pauseBtn.classList.add('d-none');
+            resumeBtn.classList.add('d-none');
+            stopBtn.classList.add('d-none');
+
+            if (state === 'running') {
+                pauseBtn.classList.remove('d-none');
+                stopBtn.classList.remove('d-none');
+            } else if (state === 'paused') {
+                resumeBtn.classList.remove('d-none');
+                stopBtn.classList.remove('d-none');
+            } else {
+                startBtn.classList.remove('d-none');
+            }
+        }
+
+        // Update stats
+        function updateStats(data) {
+            document.getElementById('total-urls').textContent = data.total || 0;
+            document.getElementById('safe-count').textContent = data.safe || 0;
+            document.getElementById('vuln-count').textContent = data.vulnerable || 0;
+            document.getElementById('scanned-count').textContent = data.progress || 0;
+            document.getElementById('total-count').textContent = data.total || 0;
+
+            resultsChart.data.datasets[0].data = [
+                data.safe || 0,
+                data.vulnerable || 0,
+                data.errors || 0
+            ];
+            resultsChart.update();
+        }
+
+        // Update progress
+        function updateProgress(data) {
+            const progress = data.total > 0 ? Math.round((data.progress / data.total) * 100) : 0;
+            const progressBar = document.getElementById('progress-bar');
+
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = progress + '%';
+            progressBar.setAttribute('aria-valuenow', progress);
+
+            document.getElementById('progress-pct').textContent = progress + '%';
+            document.getElementById('current-url').textContent = data.current || '-';
+
+            if (data.current) {
+                document.getElementById('scan-status').textContent = 'Scanning...';
+            } else {
+                document.getElementById('scan-status').textContent = 'Ready to scan';
+            }
+        }
+
+        // Add result row
+        function addResultRow(result) {
             const tbody = document.getElementById('results-body');
-            const row = document.createElement('tr');
-            const result = data.latest;
 
-            const badgeClass = result.verdict === 'VULNERABLE' ? 'badge-vuln' :
-                result.verdict === 'SAFE' ? 'badge-safe' : 'bg-warning';
+            // Remove empty state if present
+            if (tbody.querySelector('td[colspan]')) {
+                tbody.innerHTML = '';
+            }
+
+            const row = tbody.insertRow(0);
+            const statusClass = result.verdict === 'VULNERABLE' ? 'danger' :
+                result.verdict === 'ERROR' ? 'warning' : 'success';
+
+            const statusIcon = result.verdict === 'VULNERABLE' ? 'exclamation-triangle' :
+                result.verdict === 'ERROR' ? 'exclamation-circle' : 'check-circle';
 
             row.innerHTML = `
-                <td>${new Date().toLocaleTimeString()}</td>
-                <td class="text-truncate" style="max-width: 400px;">${result.url}</td>
-                <td><span class="badge ${badgeClass}">${result.verdict}</span></td>
-                <td class="small text-muted">${result.details || ''}</td>
+                <td class="url-preview" title="${result.url}">${result.url}</td>
+                <td>
+                    <span class="badge badge-custom bg-${statusClass}">
+                        <i class="bi bi-${statusIcon}"></i> ${result.verdict}
+                    </span>
+                </td>
+                <td>${result.risk || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick='showResultDetail(${JSON.stringify(result)})'>
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
             `;
 
-            tbody.insertBefore(row, tbody.firstChild);
+            scanResults.push(result);
+        }
 
-            // Keep list manageable
-            if (tbody.children.length > 100) {
-                tbody.removeChild(tbody.lastChild);
+        // Show result detail
+        function showResultDetail(result) {
+            const content = document.getElementById('resultDetailContent');
+            const detailClass = result.verdict === 'VULNERABLE' ? 'vulnerability-detail' : 'safe-detail';
+
+            content.innerHTML = `
+                <div class="${detailClass}">
+                    <h6><i class="bi bi-link-45deg"></i> URL</h6>
+                    <code>${result.url}</code>
+                    
+                    <h6 class="mt-3"><i class="bi bi-shield"></i> Verdict</h6>
+                    <span class="badge bg-${result.verdict === 'VULNERABLE' ? 'danger' : 'success'} badge-custom">
+                        ${result.verdict}
+                    </span>
+                    
+                    <h6 class="mt-3"><i class="bi bi-info-circle"></i> Details</h6>
+                    <p>${result.details || 'No additional details available'}</p>
+                    
+                    ${result.ml_confidence ? `
+                        <h6 class="mt-3"><i class="bi bi-cpu"></i> ML Confidence</h6>
+                        <div class="progress">
+                            <div class="progress-bar" style="width: ${result.ml_confidence * 100}%">
+                                ${(result.ml_confidence * 100).toFixed(1)}%
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${result.errors && result.errors.length > 0 ? `
+                        <h6 class="mt-3"><i class="bi bi-exclamation-triangle"></i> SQL Errors Detected</h6>
+                        <ul>
+                            ${result.errors.map(e => `<li><code>${e}</code></li>`).join('')}
+                        </ul>
+                    ` : ''}
+                    
+                    <h6 class="mt-3"><i class="bi bi-clock"></i> Timestamp</h6>
+                    <small>${result.timestamp || new Date().toISOString()}</small>
+                </div>
+            `;
+
+            const modal = new bootstrap.Modal(document.getElementById('resultDetailModal'));
+            modal.show();
+        }
+
+        // Add timeline event
+        function addTimelineEvent(event) {
+            const timeline = document.getElementById('activity-timeline');
+
+            // Remove empty state
+            if (timeline.querySelector('.text-center')) {
+                timeline.innerHTML = '';
             }
+
+            const timelineItem = document.createElement('div');
+            timelineItem.className = 'timeline-item';
+
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = event.type === 'complete' ? 'check-circle' :
+                event.type === 'error' ? 'x-circle' :
+                    event.type === 'start' ? 'play-circle' :
+                        'info-circle';
+
+            timelineItem.innerHTML = `
+                <small class="text-muted">${timestamp}</small>
+                <div><i class="bi bi-${icon}"></i> ${event.message || event.details || 'Activity logged'}</div>
+            `;
+
+            timeline.insertBefore(timelineItem, timeline.firstChild);
+
+            // Limit to 50 items
+            while (timeline.children.length > 50) {
+                timeline.removeChild(timeline.lastChild);
+            }
+        }
+
+        // Clear timeline
+        function clearTimeline() {
+            document.getElementById('activity-timeline').innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p class="mb-0">Activity log cleared</p>
+                </div>
+            `;
+        }
+
+        // Clear results
+        function clearResults() {
+            if (confirm('Clear all results?')) {
+                document.getElementById('results-body').innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox"></i><br>
+                            No results yet. Start a scan to see results.
+                        </td>
+                    </tr>
+                `;
+                scanResults = [];
+                updateStats({ total: 0, safe: 0, vulnerable: 0, errors: 0 });
+                showNotification('Cleared', 'All results cleared', 'info');
+            }
+        }
+
+        // Clear results table
+        function clearResultsTable() {
+            document.getElementById('results-body').innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox"></i><br>
+                        No results yet. Start a scan to see results.
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Export results
+        function exportResults(format) {
+            if (scanResults.length === 0) {
+                showNotification('No Data', 'No results to export', 'warning');
+                return;
+            }
+
+            const options = {
+                include_safe: document.getElementById('includeSafeUrls')?.checked || false,
+                include_timestamps: document.getElementById('includeTimestamps')?.checked || true,
+                include_details: document.getElementById('includeScreenshots')?.checked || true
+            };
+
+            fetch('/api/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    format: format,
+                    results: scanResults,
+                    options: options
+                })
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `scan_results_${Date.now()}.${format}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    showNotification('Exported', `Results exported as ${format.toUpperCase()}`, 'success');
+                })
+                .catch(error => {
+                    showNotification('Error', 'Export failed', 'danger');
+                });
+
+            // Close export modal if open
+            const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+            if (modal) modal.hide();
+        }
+
+        // Show notification
+        function showNotification(title, message, type = 'info') {
+            const container = document.getElementById('notifications-container');
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} alert-dismissible fade show`;
+            notification.innerHTML = `
+                <strong>${title}</strong><br>${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            container.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Open settings modal
+        function openSettings() {
+            const modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+            modal.show();
+        }
+
+        // Save settings
+        function saveSettings() {
+            const settings = {
+                max_concurrent: parseInt(document.getElementById('maxConcurrent').value),
+                timeout: parseInt(document.getElementById('requestTimeout').value),
+                waf_detection: document.getElementById('wafDetection').checked,
+                error_based: document.getElementById('errorBasedDetection').checked,
+                boolean_based: document.getElementById('booleanBasedDetection').checked,
+                jira: document.getElementById('jiraIntegration').checked,
+                slack: document.getElementById('slackIntegration').checked,
+                s3: document.getElementById('s3Integration').checked
+            };
+
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showNotification('Saved', 'Settings saved successfully', 'success');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+                    modal.hide();
+                });
+        }
+
+        // Open export modal
+        function openExportModal() {
+            const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+            modal.show();
+        }
+
+        // Show help
+        function showHelp() {
+            const modal = new bootstrap.Modal(document.getElementById('helpModal'));
+            modal.show();
+        }
+
+        // File upload handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('dropZone').classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('dropZone').classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('dropZone').classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const content = e.target.result;
+                const urls = content.split('\n').filter(u => u.trim());
+                document.getElementById('urls-input').value = urls.join('\n');
+
+                document.getElementById('file-preview').innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> Loaded ${urls.length} URLs from ${file.name}
+                    </div>
+                `;
+
+                showNotification('File Loaded', `${urls.length} URLs loaded`, 'success');
+            };
+            reader.readAsText(file);
+        }
+
+        // Load scan history
+        function loadScanHistory() {
+            fetch('/api/history')
+                .then(response => response.json())
+                .then(data => {
+                    const historyList = document.getElementById('scan-history-list');
+                    if (data.scans && data.scans.length > 0) {
+                        historyList.innerHTML = data.scans.map(scan => `
+                            <div class="timeline-item">
+                                <small class="text-muted">${new Date(scan.timestamp).toLocaleString()}</small>
+                                <div>
+                                    <strong>Scan ID:</strong> ${scan.scan_id}<br>
+                                    <strong>Total URLs:</strong> ${scan.total_urls}<br>
+                                    <strong>Vulnerable:</strong> ${scan.vulnerable}
+                                </div>
+                                <button class="btn btn-sm btn-primary mt-2" onclick="loadScanById('${scan.scan_id}')">
+                                    <i class="bi bi-upload"></i> Load
+                                </button>
+                            </div>
+                        `).join('');
+                    }
+                });
+        }
+
+        // Load scan by ID
+        function loadScanById(scanId) {
+            fetch(`/api/history/${scanId}`)
+                .then(response => response.json())
+                .then(data => {
+                    scanResults = data.results;
+                    // Populate results table
+                    data.results.forEach(result => addResultRow(result));
+                    showNotification('Loaded', 'Scan results loaded from history', 'info');
+                });
+        }
+
+        // Copy result details
+        function copyResultDetails() {
+            const content = document.getElementById('resultDetailContent').innerText;
+            navigator.clipboard.writeText(content)
+                .then(() => showNotification('Copied', 'Details copied to clipboard', 'success'));
+        }
+
+        // Export single result
+        function exportSingleResult() {
+            showNotification('Export', 'Single result export coming soon', 'info');
+        }
+
+        // Load from history
+        function loadFromHistory() {
+            document.querySelector('#history-tab').click();
+            loadScanHistory();
+        }
+
+        // Open scheduler (placeholder)
+        function openScheduler() {
+            showNotification('Coming Soon', 'Scan scheduler feature is under development', 'info');
+        }
+
+        function loginWithGithub() {
+            showNotification('Authenticating', 'Redirecting to GitHub...', 'info');
+            fetch('/api/auth/github')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.url) window.location.href = data.url;
+                    else showNotification('Error', data.error || 'Failed to initialize SSO', 'error');
+                });
+        }
+
+        function loadNodes() {
+            fetch('/api/nodes')
+                .then(r => r.json())
+                .then(nodes => {
+                    const list = document.getElementById('nodes-list');
+                    if (nodes.length === 0) {
+                        list.innerHTML = '<div class="col-12 text-center text-muted py-3">No distributed nodes detected.</div>';
+                        return;
+                    }
+                    list.innerHTML = nodes.map(node => `
+                        <div class="col-md-4">
+                            <div class="card bg-dark border-secondary h-100">
+                                <div class="card-body">
+                                    <h6 class="text-primary mb-1">${node.node_id}</h6>
+                                    <small class="text-muted">${node.address}</small>
+                                    <div class="mt-2">
+                                        <span class="badge ${node.status === 'online' ? 'bg-success' : 'bg-secondary'}">${node.status}</span>
+                                        <small class="ms-2 text-white-50">Last Seen: ${new Date(node.last_seen).toLocaleTimeString()}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            // Load initial state
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.running) {
+                        updateButtonStates('running');
+                    }
+                });
+
+            // Set up click handler for drop zone
+            document.getElementById('dropZone').addEventListener('click', function () {
+                document.getElementById('fileInput').click();
+            });
         });
     </script>
 </body>

@@ -1,12 +1,12 @@
-# 🔥 VIP SQLi Scanner - Advanced Edition v2.2
+# 🔥 VIP SQLi Scanner - Advanced Edition v3.0
 
 <p align="center">
   <img src="assets/logo.svg" width="150" alt="VIP Logo">
 </p>
 
-**REAL SQLi PEHCHANNE KA 30-SECOND FRAMEWORK**
+**PROFESSIONAL SQLi DETECTION & EXPLOITATION TRIAGE FRAMEWORK**
 
-A professional, fast, and safe SQL Injection triage tool that identifies real SQLi vulnerabilities in 30 seconds without exploits or illegal payloads.
+A next-generation, high-performance security tool for automated SQLi discovery. v3.0 introduces machine learning scoring, boolean-based blind detection, and an enterprise dashboard with distributed scanning support.
 
 ---
 
@@ -16,45 +16,27 @@ A professional, fast, and safe SQL Injection triage tool that identifies real SQ
 
 ## 🎯 Features
 
-### Rule #0: Static File Detection
-Instantly skips static assets with **60+ file extensions**:
-- **Stylesheets & Scripts**: `.css`, `.js`, `.min.js`, `.scss`, `.sass`, `.less`
-- **Images**: `.png`, `.jpg`, `.gif`, `.webp`, `.svg`, `.heic`
-- **Fonts**: `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`
-- **Documents**: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`
-- **Media**: `.mp4`, `.mp3`, `.avi`, `.mov`, `.webm`, `.mkv`
-- **Archives**: `.zip`, `.rar`, `.tar`, `.gz`, `.7z`
+### 🔍 Advanced Detection (v3.0)
+- **Boolean-Based Blind Detection**: Precision testing using logic pairs (TRUE/FALSE) with response diff analysis.
+- **ML Scoring Engine**: Integrated machine learning model to categorize and score vulnerability confidence.
+- **Error-Based Injections**: Support for **100+ SQL error signatures** across MySQL, PG, Oracle, MSSQL, SQLite, and DB2.
+- **Time-Based Triage**: High-accuracy blind SQLi detection with automated WAF bypass logic.
 
-### Step 1: File Type Analysis
-Detects **15+ dangerous extensions** and **25+ safe paths**:
-- **High-Risk**: `.php`, `.aspx`, `.jsp`, `.cfm`, `.ashx`, `.asmx`
-- **Safe Paths**: `/wp-content/`, `/static/`, `/assets/`, `/node_modules/`
+### 📈 Modern UI & Dashboard (v4.0 Backend)
+- **Cyberpunk Aesthetics**: Real-time visualization using a premium glassmorphism dashboard.
+- **Enterprise SSO**: GitHub OAuth integration for team-based security operations.
+- **Distributed Infrastructure**: Register and monitor external scan nodes for massive scalability.
+- **Real-time Reporting**: Live WebSocket updates as findings are discovered.
 
-### Step 2: Parameter Risk Assessment
-Analyzes **60+ high-risk** and **40+ low-risk** parameters:
-- **High-Risk**: `id`, `product_id`, `user_id`, `query`, `search`, `email`, `password`
-- **Low-Risk**: `ver`, `utm_*`, `fbclid`, `csrf_token`, `lang`, `width`
+### 📊 Professional Export formats
+- **SARIF v2.1.0**: Standard format for integration with GitHub Advanced Security.
+- **Executive PDF/HTML**: Beautiful reports with CVSS scoring and remediation advice.
+- **Bulk CSV/JSON**: Structured data for post-processing and SIEM integration.
 
-### Step 3: Behavior Testing
-Safe fuzzing logic:
-- Compares baseline vs modified parameter responses
-- Detects redirects, errors, and content changes
-- No destructive payloads
-
-### Step 4: Error Signature Detection
-Scans for **50+ SQL error patterns** across:
-- **MySQL/MariaDB**: `mysql_fetch`, `You have an error in your SQL syntax`
-- **PostgreSQL**: `pg_query`, `ERROR: syntax error at or near`
-- **Oracle**: `ORA-`, `quoted string not properly terminated`
-- **MSSQL**: `SQLServer JDBC Driver`, `Incorrect syntax near`
-- **SQLite**: `sqlite3.OperationalError`, `System.Data.SQLite`
-- **DB2**: `SQLCODE`, `DB2 SQL error`
-
-### Step 5: Premium Branding & Dashboard
-Visual excellence for professional delivery:
-- **Custom SVG Logo**: Integrated into Dashboard and PDF reports.
-- **Real-time Web UI**: Live visualization of scan progress.
-- **Graded PDF Reports**: Clean, executive-level documentation.
+### 🛡️ Smart Triage System
+- **Rule #0 Skip**: Automatically excludes **60+ static asset types** to maximize speed.
+- **Risk Assessment**: Analyzes **15+ high-risk extensions** and **60+ sensitive parameters**.
+- **WAF Bypass**: Sophisticated payload encoding to identify hidden vulnerabilities behind firewalls.
 
 ## 📦 Installation
 
@@ -70,44 +52,41 @@ pip install -r requirements-v2.2.txt
 
 ### Single URL Scan
 ```bash
-python sqli_scanner_advanced.py -u "http://example.com/product.php?id=1"
+python sqli_scanner_advanced.py -u "http://example.com/product.php?id=1" --boolean --ml
 ```
 
 ### Batch Scanning (URL List)
 ```bash
-# Scan multiple URLs from a file
-python sqli_scanner_advanced.py -l urls.txt --threads 10
-
-# Scan with exclusion patterns
-python sqli_scanner_advanced.py -l urls.txt -e exclusions.txt
-
-# Save results to file
-python sqli_scanner_advanced.py -l urls.txt -o results.json
+# Scan multiple URLs with all detection types enabled
+python sqli_scanner_advanced.py -l urls.txt --threads 20 --boolean --ml --sarif report.sarif
 ```
 
-### Command-Line Options
-- `-l, --list`: File containing URLs to scan (one per line)
-- `-e, --exclude`: File containing exclusion patterns (one per line)
-- `-o, --output`: Output file for results (default: stdout)
-- `-h, --help`: Show help message
+### Primary Command-Line Options
+| Flag | Description |
+|------|-------------|
+| `-u, --url` | Single target URL |
+| `-l, --list` | File containing URLs to scan |
+| `--boolean` | Enable boolean-based blind detection (v3.0) |
+| `--ml` | Enable ML-based vulnerability scoring (v3.0) |
+| `--sarif` | Save results in SARIF v2.1.0 format |
+| `-k, --insecure` | Ignore SSL verification errors |
+| `--dashboard` | Launch the Enterprise Web Dashboard (v4.0) |
 
 ---
 
-## ⚡ Advanced Scanner Commands
+## 🖥️ Enterprise Web Dashboard (v4.0+)
 
-For high-performance scanning with modern UI, use the **Advanced Edition** (`sqli_scanner_advanced.py`):
+The scanner now features a high-performance Cyberpunk-themed backend for managing complex operations.
 
-### Quick Start (Advanced)
-```bash
-# Single URL with modern UI
-python sqli_scanner_advanced.py "http://example.com/product.php?id=1"
-
-# Fast async scan (5-10x faster)
-python sqli_scanner_advanced.py -l urls.txt --async --max-concurrent 20
-
-# Full detection with time-based SQLi
-python sqli_scanner_advanced.py -l urls.txt --async --time-based -v
+**Launch Dashboard:**
+```powershell
+python dashboard/app.py
 ```
+
+**Interactive Controls:**
+- **Distributed Nodes**: Manage remote scanning infrastructure.
+- **SSO Integration**: Secure team access via GitHub.
+- **Live Feed**: Watch real-time vulnerabilities with ML scoring.
 
 ### High-Performance Scanning
 ```bash
@@ -165,6 +144,17 @@ python sqli_scanner_advanced.py -u "http://target.com" --headers headers.json --
 # Organize results by domain (Safe/Vuln lists)
 python sqli_scanner_advanced.py -l urls.txt --filter
 ```
+
+### 🖥️ Real-time Dashboard (v2.2+)
+Launch the interactive web dashboard to monitor and control scans:
+```powershell
+python sqli_scanner_advanced.py --dashboard
+```
+**New Interactive Features:**
+- **Command Center**: Sidebar control for running scans.
+- **Dynamic Targeting**: Add URLs and domains to the scan queue in real-time.
+- **Payload Injection**: Inject custom SQLi payloads directly into the engine from the web UI.
+- **Process Management**: Start and terminate scan threads remotely.
 
 ### Real-Time Monitoring
 ```bash

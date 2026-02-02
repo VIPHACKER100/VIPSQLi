@@ -7,11 +7,10 @@ Quick reference guide for all scanner commands with real-time statistics.
 ## 📋 Table of Contents
 - [Quick Start](#quick-start)
 - [High-Performance Scanning](#high-performance-scanning)
-- [Advanced Detection](#advanced-detection)
-- [ML-Powered Detection (v2.2)](#ml-powered-detection-v22)
-- [Web Dashboard (v2.2)](#web-dashboard-v22)
+- [Advanced Detection (v3.0)](#advanced-detection-v30)
+- [ML-Powered Detection](#ml-powered-detection)
+- [Enterprise Web Dashboard (v4.0)](#enterprise-web-dashboard-v40)
 - [Export & Reporting](#export--reporting)
-- [Cloud & PDF (Phase 5)](#cloud--pdf-phase-5)
 - [Professional Pentesting](#professional-pentesting)
 - [Interactive Mode](#interactive-mode)
 - [Command Options](#command-options)
@@ -61,7 +60,13 @@ python sqli_scanner_advanced.py -l urls.txt --async --max-concurrent 30 -p paylo
 
 ---
 
-## Advanced Detection
+## Advanced Detection (v3.0)
+
+### Boolean-Based Blind SQLi Detection ⭐
+High-precision detection using logical conditions.
+```bash
+python sqli_scanner_advanced.py -l urls.txt --boolean
+```
 
 ### Time-Based Blind SQLi Detection
 ```bash
@@ -70,19 +75,14 @@ python sqli_scanner_advanced.py -l urls.txt --time-based
 
 ### Full Detection Suite
 ```bash
-python sqli_scanner_advanced.py -l urls.txt --async --time-based --max-concurrent 20
+python sqli_scanner_advanced.py -l urls.txt --boolean --time-based -t 20
 ```
 
 ### Verbose Mode (Real-Time URL Status) 📊
 ```bash
-python sqli_scanner_advanced.py -l urls.txt --async --time-based -v
+python sqli_scanner_advanced.py -l urls.txt --boolean -v
 ```
 *Shows live updates: ✅ SAFE / 🔴 VULNERABLE for each URL*
-
-### Deep Analysis with Verbose
-```bash
-python sqli_scanner_advanced.py -l urls.txt --threads 10 --time-based -v
-```
 
 ---
 
@@ -111,31 +111,27 @@ python sqli_scanner_advanced.py -l urls.txt --profile stealth
 
 ---
 
-## Web Dashboard (v2.2)
+## Enterprise Web Dashboard (v4.0)
 
-### Launch Real-Time Dashboard
-Open `http://localhost:5000` in your browser.
+### Launch Dashboard Engine
+Access high-performance controls at `http://localhost:5000`.
 ```bash
-python sqli_scanner_advanced.py --dashboard
+python dashboard/app.py
 ```
 
 ---
 
 ## Export & Reporting
 
-### JSON Export
+### SARIF Export (v3.0) ⭐
+Industry standard format for GitHub Advanced Security.
 ```bash
-python sqli_scanner_advanced.py -l urls.txt -o scan_results.json
+python sqli_scanner_advanced.py -l urls.txt --sarif scan_results.sarif
 ```
 
-### CSV Export
+### Professional HTML & PDF
 ```bash
-python sqli_scanner_advanced.py -l urls.txt --csv scan_results.csv
-```
-
-### Both JSON & CSV
-```bash
-python sqli_scanner_advanced.py -l urls.txt -o results.json --csv results.csv
+python sqli_scanner_advanced.py -l urls.txt --html report.html --pdf report.pdf
 ```
 
 ### 📂 Domain Filter System
@@ -231,20 +227,17 @@ The tool will prompt you for:
 | `-o, --output` | JSON output file | - |
 | `--csv` | CSV output file | - |
 | `-t, --threads` | Number of threads | `5` |
-| `--async` | Enable async scanning (faster) | `False` |
-| `--max-concurrent` | Max concurrent requests for async | `20` |
+| `--boolean` | Enable boolean-based blind detection (v3.0) | `False` |
+| `--ml` | Enable ML-based scoring (v3.0) | `False` |
+| `--sarif` | Save results in SARIF v2.1.0 format (v3.0) | - |
+| `-k, --insecure` | Ignore SSL verification errors (v3.0) | `False` |
 | `--time-based` | Enable time-based blind SQLi detection | `False` |
 | `-v, --verbose` | Verbose output with real-time URL status | `False` |
 | `-i, --interactive` | Interactive mode with prompts | `False` |
-| `--filter` | Organize results into domain folders (safeurl.txt/vulnurl.txt) | `False` |
-| `--ml` | Enable ML-based detection (v2.2) | `False` |
-| `--dashboard` | Launch Web Dashboard (v2.2) | `False` |
-| `--train` | Train ML Model (v2.2) | `False` |
-| `--profile` | Scan Profile (aggressive, balanced, stealth) | `balanced` |
-| `--pdf` | Generate PDF report (Phase 5) | `False` |
-| `--slack` | Send results to Slack (Phase 5) | `False` |
-| `--s3` | Upload to S3 (Phase 5) | `False` |
-| `--jira` | Create Jira issues (Phase 5) | `False` |
+| `--html` | HTML report filename | - |
+| `--pdf` | PDF report filename | - |
+| `--proxy` | Single proxy URL | - |
+| `--headers` | Custom headers JSON file | - |
 
 ---
 

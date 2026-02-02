@@ -1,0 +1,35 @@
+2026-02-03 00:36:08,012 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.216:5000
+2026-02-03 00:36:08,013 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-02-03 01:54:52,913 - __main__ - INFO - [app.py:1959] - Default admin user created
+2026-02-03 01:54:53,081 - __main__ - INFO - [app.py:1985] - Database initialized successfully
+2026-02-03 01:54:53,141 - werkzeug - INFO - [_internal.py:97] - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.216:5000
+2026-02-03 01:54:53,148 - werkzeug - INFO - [_internal.py:97] - [33mPress CTRL+C to quit[0m
+2026-02-03 01:58:09,150 - __main__ - INFO - [app.py:1985] - Database initialized successfully
+2026-02-03 01:58:09,270 - werkzeug - INFO - [_internal.py:97] - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.216:5000
+2026-02-03 01:58:09,275 - werkzeug - INFO - [_internal.py:97] - [33mPress CTRL+C to quit[0m
+2026-02-03 01:58:42,971 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:42] "GET / HTTP/1.1" 200 -
+2026-02-03 01:58:43,301 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:43] "GET /socket.io/?EIO=4&transport=polling&t=PmW2nMD HTTP/1.1" 200 -
+2026-02-03 01:58:43,439 - __main__ - INFO - [app.py:1862] - Client connected: 5B3HhsOZSbvgK7AyAAAB
+2026-02-03 01:58:43,447 - socketio.server - INFO - [server.py:159] - emitting event "connected" to 5B3HhsOZSbvgK7AyAAAB [/]
+2026-02-03 01:58:43,448 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:43] "POST /socket.io/?EIO=4&transport=polling&t=PmW2nOg&sid=o6QNqViTUJfr4M_0AAAA HTTP/1.1" 200 -
+2026-02-03 01:58:43,757 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:43] "GET /socket.io/?EIO=4&transport=polling&t=PmW2nOj&sid=o6QNqViTUJfr4M_0AAAA HTTP/1.1" 200 -
+2026-02-03 01:58:43,761 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:43] "GET /api/status HTTP/1.1" 200 -
+2026-02-03 01:58:44,210 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:44] "GET /socket.io/?EIO=4&transport=polling&t=PmW2nVw&sid=o6QNqViTUJfr4M_0AAAA HTTP/1.1" 200 -
+2026-02-03 01:58:44,359 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:58:44] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-02-03 01:59:26,596 - __main__ - INFO - [app.py:1877] - Client disconnected: 5B3HhsOZSbvgK7AyAAAB
+2026-02-03 01:59:26,597 - werkzeug - INFO - [_internal.py:97] - 127.0.0.1 - - [03/Feb/2026 01:59:26] "GET /socket.io/?EIO=4&transport=websocket&sid=o6QNqViTUJfr4M_0AAAA HTTP/1.1" 200 -
+2026-02-03 02:12:12,902 - __main__ - INFO - [app.py:1985] - Database initialized successfully
+2026-02-03 02:12:12,928 - werkzeug - INFO - [_internal.py:97] - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.216:5000
+2026-02-03 02:12:12,930 - werkzeug - INFO - [_internal.py:97] - [33mPress CTRL+C to quit[0m

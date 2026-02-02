@@ -1,76 +1,774 @@
 import re
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional, Set
+from dataclasses import dataclass, field
+from enum import Enum
+import time
+from collections import defaultdict
 
-SQL_ERROR_PATTERNS = [
-    r"SQL syntax", r"mysql_fetch", r"mysql_query", r"mysql_num_rows",
-    r"Warning: mysql_", r"mysqli_", r"You have an error in your SQL syntax",
-    r"supplied argument is not a valid MySQL",
-    r"Call to a member function fetch_assoc\(\) on boolean",
-    r"Syntax error or access violation",
-    r"PostgreSQL query failed", r"pg_query", r"pg_exec", r"pg_fetch",
-    r"unterminated quoted string", r"ERROR: syntax error at or near",
-    r"ORA-\d*", r"Oracle error", r"Oracle ODBC", r"Oracle Driver",
-    r"quoted string not properly terminated",
-    r"Microsoft OLE DB Provider for SQL Server",
-    r"SQLServer JDBC Driver", r"System\.Data\.SqlClient\.SqlException",
-    r"Unclosed quotation mark after the character string",
-    r"Incorrect syntax near", r"\[Microsoft\]\[ODBC SQL Server Driver\]",
-    r"\[SQL Server\]", r"ADODB\.Field error",
-    r"SQLite/JDBCDriver", r"SQLite\.Exception", r"System\.Data\.SQLite\.SQLiteException",
-    r"sqlite3\.OperationalError", r'near ":": syntax error',
-    r"DB2 SQL error", r"SQLCODE", r"DB2 ODBC", r"CLI Driver",
-    r"ODBC", r"ODBC Driver", r"ODBC Error",
-    r"PDOException", r"SQLSTATE",
-    r"Unclosed quotation", r"syntax error", r"invalid query",
-    r"unexpected end of SQL command", r"unterminated string",
-    r"SQL command not properly ended",
-    r"Microsoft JET Database Engine", r"ADODB\.Command",
-    r"ASP\.NET_SessionId", r"System\.Data\.OleDb\.OleDbException"
-]
+class SQLiType(Enum):
+    """SQL injection attack types"""
+    ERROR_BASED = "error_based"
+    UNION_BASED = "union_based"
+    BOOLEAN_BASED = "boolean_based"
+    TIME_BASED = "time_based"
+    STACKED_QUERIES = "stacked_queries"
+    OUT_OF_BAND = "out_of_band"
+    SECOND_ORDER = "second_order"
 
-WAF_SIGNATURES = {
-    'Cloudflare': ['cf-ray', 'cloudflare', '__cfduid', 'cf-cache-status'],
-    'AWS WAF': ['x-amzn-requestid', 'x-amz-cf-id', 'awselb'],
-    'Akamai': ['akamai', 'ak-bmsc', 'x-akamai'],
-    'Imperva': ['incap_ses', 'visid_incap', 'imperva'],
-    'ModSecurity': ['mod_security', 'NOYB'],
-    'Sucuri': ['x-sucuri-id', 'sucuri'],
-    'Wordfence': ['wordfence'],
-    'F5 BIG-IP': ['bigipserver', 'f5'],
+class Severity(Enum):
+    """Detection severity levels"""
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    CRITICAL = 4
+
+@dataclass
+class Detection:
+    """Represents a single detection event"""
+    sqli_type: SQLiType
+    severity: Severity
+    confidence: float  # 0.0 to 1.0
+    indicators: List[str]
+    timestamp: float = field(default_factory=time.time)
+    context: Optional[str] = None
+    remediation: Optional[str] = None
+
+@dataclass
+class WAFDetection:
+    """WAF detection result"""
+    detected: bool
+    waf_name: Optional[str] = None
+    confidence: float = 0.0
+    signatures_matched: List[str] = field(default_factory=list)
+    bypass_suggestions: List[str] = field(default_factory=list)
+
+# Enhanced SQL error patterns organized by database
+SQL_ERROR_PATTERNS = {
+    'MySQL': [
+        r"SQL syntax.*?MySQL",
+        r"Warning:.*?mysql_.*",
+        r"MySQLSyntaxErrorException",
+        r"valid MySQL result",
+        r"check the manual that corresponds to your (MySQL|MariaDB) server version",
+        r"Unknown column.*?in.*?field list",
+        r"MySqlClient\.",
+        r"com\.mysql\.jdbc\.exceptions",
+        r"Duplicate entry.*?for key",
+    ],
+    'PostgreSQL': [
+        r"PostgreSQL.*?ERROR",
+        r"Warning:.*?pg_.*",
+        r"valid PostgreSQL result",
+        r"Npgsql\.",
+        r"PG::SyntaxError:",
+        r"org\.postgresql\.util\.PSQLException",
+        r"ERROR:\s+syntax error at or near",
+        r"ERROR:\s+column.*?does not exist",
+    ],
+    'MSSQL': [
+        r"Driver.*?SQL[\-\_\ ]*Server",
+        r"OLE DB.*?SQL Server",
+        r"(\W|\A)SQL Server.*?Driver",
+        r"Warning.*?mssql_.*",
+        r"\[Microsoft\]\[ODBC SQL Server Driver\]",
+        r"\[SQLServer JDBC Driver\]",
+        r"Unclosed quotation mark after the character string",
+        r"Incorrect syntax near",
+        r"System\.Data\.SqlClient\.SqlException",
+    ],
+    'Oracle': [
+        r"\bORA-\d{4,5}",
+        r"Oracle error",
+        r"Oracle.*?Driver",
+        r"Warning.*?oci_.*",
+        r"Warning.*?ora_.*",
+        r"oracle\.jdbc\.driver",
+        r"quoted string not properly terminated",
+    ],
+    'SQLite': [
+        r"SQLite/JDBCDriver",
+        r"SQLite\.Exception",
+        r"System\.Data\.SQLite\.SQLiteException",
+        r"Warning.*?sqlite_.*",
+        r"sqlite3\.OperationalError",
+        r"SQLITE_ERROR",
+        r"near\s+\".*?\":\s+syntax error",
+    ],
+    'Generic': [
+        r"syntax error",
+        r"quoted string not properly terminated",
+        r"unterminated quoted string",
+        r"unexpected end of SQL command",
+        r"SQLSTATE\[\w+\]",
+        r"PDOException",
+        r"SQL command not properly ended",
+        r"invalid query",
+    ]
 }
 
-class SQLiDetector:
-    def __init__(self, config=None):
-        self.config = config or {}
-        # Pre-compile patterns for performance
-        self.patterns = [re.compile(p, re.I) for p in SQL_ERROR_PATTERNS]
-    
-    def detect_error_based(self, text: str) -> Tuple[bool, List[str]]:
-        """Check for SQL error messages in text"""
-        found_errors = []
-        for pattern in self.patterns:
-            if pattern.search(text):
-                found_errors.append(pattern.pattern)
-        return len(found_errors) > 0, list(set(found_errors))
-    
-    def detect_waf(self, headers: Dict, text: str) -> Tuple[bool, str]:
-        """Identify WAF presence"""
-        # Check headers first
-        for waf_name, signatures in WAF_SIGNATURES.items():
-            for sig in signatures:
-                # Check keys and values in headers
-                for k, v in headers.items():
-                    if sig.lower() in k.lower() or sig.lower() in str(v).lower():
-                        return True, waf_name
-        
-        # Check body
-        for waf_name, signatures in WAF_SIGNATURES.items():
-            for sig in signatures:
-                if sig.lower() in text.lower():
-                    return True, waf_name
-                    
-        return False, None
+# Enhanced WAF signatures with more detection methods
+WAF_SIGNATURES = {
+    'Cloudflare': {
+        'headers': ['cf-ray', 'cf-cache-status', 'cf-request-id', '__cfduid'],
+        'cookies': ['__cfduid', '__cfruid', 'cf_clearance'],
+        'body_patterns': [r'<title>Attention Required! \| Cloudflare</title>'],
+        'status_codes': [403, 429, 503],
+    },
+    'AWS WAF': {
+        'headers': ['x-amzn-requestid', 'x-amz-cf-id', 'x-amzn-errortype'],
+        'cookies': ['awselb', 'awsalb'],
+        'body_patterns': [r'<RequestId>[a-f0-9\-]+</RequestId>'],
+        'status_codes': [403],
+    },
+    'Akamai': {
+        'headers': ['akamai-ghost-ip', 'x-akamai-request-id', 'x-akamai-session-info'],
+        'cookies': ['ak-bmsc', 'bm_sz'],
+        'body_patterns': [r'Access Denied.*?Reference #\d+'],
+        'status_codes': [403],
+    },
+    'Imperva (Incapsula)': {
+        'headers': ['x-cdn', 'x-iinfo'],
+        'cookies': ['incap_ses', 'visid_incap', 'nlbi'],
+        'body_patterns': [r'_Incapsula_Resource', r'incapsula incident'],
+        'status_codes': [403],
+    },
+    'ModSecurity': {
+        'headers': ['x-mod-security', 'server: mod_security'],
+        'cookies': [],
+        'body_patterns': [r'mod_security', r'NOYB', r'This error was generated by Mod_Security'],
+        'status_codes': [406, 501],
+    },
+    'Sucuri': {
+        'headers': ['x-sucuri-id', 'x-sucuri-cache'],
+        'cookies': ['sucuri-'],
+        'body_patterns': [r'Questions\?.*?cloudproxy@sucuri\.net', r'Sucuri Website Firewall'],
+        'status_codes': [403],
+    },
+    'Wordfence': {
+        'headers': [],
+        'cookies': ['wfvt_', 'wordfence'],
+        'body_patterns': [r'Generated by Wordfence', r'Your access to this site has been limited'],
+        'status_codes': [403, 503],
+    },
+    'F5 BIG-IP': {
+        'headers': ['x-cnection', 'x-wa-info'],
+        'cookies': ['bigipserver', 'f5_cspm', 'TS'],
+        'body_patterns': [r'The requested URL was rejected\. Please consult with your administrator'],
+        'status_codes': [403],
+    },
+    'Barracuda': {
+        'headers': ['barra_counter_session'],
+        'cookies': ['barra_counter_session'],
+        'body_patterns': [r'Barracuda Web Application Firewall'],
+        'status_codes': [403],
+    },
+    'Fortinet FortiWeb': {
+        'headers': [],
+        'cookies': ['FORTIWAFSID'],
+        'body_patterns': [r'FORTIGATE', r'fortigate_system_alert'],
+        'status_codes': [403],
+    },
+}
 
-    def detect_time_based(self, elapsed: float, expected_delay: float = 5.0) -> bool:
-        """Simple threshold-based check for time-based SQLi"""
-        return elapsed >= expected_delay
+# Union-based SQLi patterns
+UNION_PATTERNS = [
+    r"union\s+(all\s+)?select",
+    r"union\s+distinct\s+select",
+    r"union.*?from.*?information_schema",
+    r"union.*?from.*?mysql\.user",
+]
+
+# Boolean-based blind SQLi indicators
+BOOLEAN_INDICATORS = {
+    'true_indicators': [
+        r"You have an error",
+        r"Warning:",
+        r"mysql_fetch",
+        r"mysql_num_rows",
+    ],
+    'response_pattern_changes': [
+        'content_length_diff',
+        'response_time_diff',
+        'md5_hash_diff',
+    ]
+}
+
+# Time-based delay patterns
+TIME_DELAY_PATTERNS = {
+    'MySQL': [r"sleep\(\d+\)", r"benchmark\("],
+    'PostgreSQL': [r"pg_sleep\(\d+\)"],
+    'MSSQL': [r"waitfor\s+delay"],
+    'Oracle': [r"dbms_lock\.sleep\(\d+\)"],
+    'Generic': [r"sleep\(\d+\)", r"delay\s+'\d+:\d+:\d+'"],
+}
+
+class AdvancedSQLiDetector:
+    """
+    Advanced SQL Injection Detection System
+    
+    Features:
+    - Multi-vector detection (error, union, boolean, time, stacked)
+    - Database-specific pattern recognition
+    - WAF detection and fingerprinting
+    - Confidence scoring
+    - Statistical anomaly detection
+    - Attack surface analysis
+    """
+    
+    def __init__(self, config: Optional[Dict] = None):
+        self.config = config or {}
+        self.debug = self.config.get('debug', False)
+        self.strict_mode = self.config.get('strict_mode', False)
+        
+        # Compile all patterns for performance
+        self._compile_patterns()
+        
+        # Detection statistics
+        self.stats = defaultdict(int)
+        self.detection_history: List[Detection] = []
+        
+        # Baseline for anomaly detection
+        self.baseline_response_time: Optional[float] = None
+        self.baseline_content_length: Optional[int] = None
+    
+    def _compile_patterns(self):
+        """Pre-compile all regex patterns for performance"""
+        self.compiled_error_patterns = {}
+        for db, patterns in SQL_ERROR_PATTERNS.items():
+            self.compiled_error_patterns[db] = [
+                re.compile(p, re.IGNORECASE | re.MULTILINE) 
+                for p in patterns
+            ]
+        
+        self.compiled_union_patterns = [
+            re.compile(p, re.IGNORECASE) for p in UNION_PATTERNS
+        ]
+        
+        self.compiled_time_patterns = {}
+        for db, patterns in TIME_DELAY_PATTERNS.items():
+            self.compiled_time_patterns[db] = [
+                re.compile(p, re.IGNORECASE) for p in patterns
+            ]
+    
+    def detect_error_based(
+        self, 
+        response_text: str, 
+        response_headers: Optional[Dict] = None
+    ) -> Detection:
+        """
+        Enhanced error-based SQLi detection with database identification
+        """
+        matched_patterns = []
+        matched_databases = set()
+        
+        for db, patterns in self.compiled_error_patterns.items():
+            for pattern in patterns:
+                if match := pattern.search(response_text):
+                    matched_patterns.append({
+                        'database': db,
+                        'pattern': pattern.pattern,
+                        'match': match.group(0)[:100]  # Truncate long matches
+                    })
+                    matched_databases.add(db)
+        
+        if matched_patterns:
+            # Calculate confidence based on number and specificity of matches
+            confidence = min(0.5 + (len(matched_patterns) * 0.1), 1.0)
+            
+            # Higher confidence if database-specific patterns matched
+            if matched_databases - {'Generic'}:
+                confidence = min(confidence + 0.2, 1.0)
+            
+            severity = Severity.HIGH if confidence >= 0.8 else Severity.MEDIUM
+            
+            indicators = [
+                f"{m['database']}: {m['match']}" 
+                for m in matched_patterns[:5]  # Limit to top 5
+            ]
+            
+            detection = Detection(
+                sqli_type=SQLiType.ERROR_BASED,
+                severity=severity,
+                confidence=confidence,
+                indicators=indicators,
+                context=f"Detected {len(matched_databases)} database types: {', '.join(matched_databases)}",
+                remediation="Use parameterized queries. Disable verbose error messages in production."
+            )
+            
+            self.detection_history.append(detection)
+            self.stats['error_based'] += 1
+            
+            return detection
+        
+        return None
+    
+    def detect_union_based(self, response_text: str, payload: str = "") -> Detection:
+        """
+        Detect UNION-based SQL injection attempts
+        """
+        indicators = []
+        
+        # Check payload for UNION keywords
+        for pattern in self.compiled_union_patterns:
+            if pattern.search(payload):
+                indicators.append(f"UNION payload detected: {pattern.pattern}")
+        
+        # Check response for successful UNION injection signs
+        union_success_patterns = [
+            r"(?:information_schema|mysql|sys)\.(?:tables|columns)",
+            r"table_name|column_name|table_schema",
+            r"(?:concat|group_concat)\s*\(",
+        ]
+        
+        for pattern_str in union_success_patterns:
+            pattern = re.compile(pattern_str, re.IGNORECASE)
+            if pattern.search(response_text):
+                indicators.append(f"UNION result pattern: {pattern_str}")
+        
+        if indicators:
+            confidence = min(0.6 + (len(indicators) * 0.15), 1.0)
+            
+            detection = Detection(
+                sqli_type=SQLiType.UNION_BASED,
+                severity=Severity.CRITICAL,
+                confidence=confidence,
+                indicators=indicators,
+                context="UNION-based SQLi allows direct data extraction",
+                remediation="Use parameterized queries. Validate and sanitize all user input."
+            )
+            
+            self.detection_history.append(detection)
+            self.stats['union_based'] += 1
+            
+            return detection
+        
+        return None
+    
+    def detect_boolean_based(
+        self,
+        true_response: str,
+        false_response: str,
+        true_length: int,
+        false_length: int,
+        true_time: float,
+        false_time: float
+    ) -> Detection:
+        """
+        Detect boolean-based blind SQL injection
+        Requires both true and false condition responses
+        """
+        indicators = []
+        
+        # Content length comparison
+        length_diff = abs(true_length - false_length)
+        if length_diff > 0:
+            indicators.append(f"Content length difference: {length_diff} bytes")
+        
+        # Response time comparison (but not as significant as time-based)
+        time_diff = abs(true_time - false_time)
+        if time_diff > 0.5:
+            indicators.append(f"Response time variance: {time_diff:.2f}s")
+        
+        # Content comparison (simple approach)
+        if true_response != false_response:
+            # Calculate similarity (simple character diff)
+            diff_ratio = length_diff / max(true_length, false_length, 1)
+            if diff_ratio > 0.1:  # More than 10% difference
+                indicators.append(f"Response content differs by {diff_ratio*100:.1f}%")
+        
+        # Need significant indicators for boolean-based detection
+        if len(indicators) >= 2:
+            confidence = min(0.4 + (len(indicators) * 0.2), 0.9)
+            
+            detection = Detection(
+                sqli_type=SQLiType.BOOLEAN_BASED,
+                severity=Severity.HIGH,
+                confidence=confidence,
+                indicators=indicators,
+                context="Boolean-based blind SQLi detected through response differences",
+                remediation="Use parameterized queries. Normalize error responses."
+            )
+            
+            self.detection_history.append(detection)
+            self.stats['boolean_based'] += 1
+            
+            return detection
+        
+        return None
+    
+    def detect_time_based(
+        self,
+        elapsed_time: float,
+        payload: str = "",
+        expected_delay: float = 5.0,
+        baseline_time: Optional[float] = None
+    ) -> Detection:
+        """
+        Enhanced time-based SQL injection detection
+        """
+        indicators = []
+        
+        # Use baseline if available, otherwise use expected delay
+        if baseline_time:
+            threshold = baseline_time + expected_delay - 1.0  # Allow 1s variance
+        else:
+            threshold = expected_delay - 0.5  # Allow 0.5s variance
+        
+        # Check if response time indicates injection
+        if elapsed_time >= threshold:
+            delay_amount = elapsed_time - (baseline_time or 0)
+            indicators.append(f"Response delayed by {delay_amount:.2f}s")
+            
+            # Check payload for time-based functions
+            for db, patterns in self.compiled_time_patterns.items():
+                for pattern in patterns:
+                    if pattern.search(payload):
+                        indicators.append(f"{db} time function detected: {pattern.pattern}")
+            
+            # Higher confidence if payload contains time functions
+            base_confidence = 0.5
+            if len(indicators) > 1:
+                base_confidence = 0.8
+            
+            # Adjust confidence based on how close to expected delay
+            if expected_delay > 0:
+                delay_accuracy = min(elapsed_time / expected_delay, 1.5)
+                if 0.9 <= delay_accuracy <= 1.1:  # Within 10% of expected
+                    base_confidence = min(base_confidence + 0.15, 1.0)
+            
+            severity = Severity.HIGH if base_confidence >= 0.7 else Severity.MEDIUM
+            
+            detection = Detection(
+                sqli_type=SQLiType.TIME_BASED,
+                severity=severity,
+                confidence=base_confidence,
+                indicators=indicators,
+                context=f"Time-based blind SQLi suspected (delay: {elapsed_time:.2f}s)",
+                remediation="Use parameterized queries. Implement rate limiting and timeout controls."
+            )
+            
+            self.detection_history.append(detection)
+            self.stats['time_based'] += 1
+            
+            return detection
+        
+        return None
+    
+    def detect_stacked_queries(
+        self,
+        response_text: str,
+        payload: str = "",
+        response_headers: Optional[Dict] = None
+    ) -> Detection:
+        """
+        Detect stacked query injection attempts
+        """
+        indicators = []
+        
+        # Check for multiple query separators in payload
+        if ';' in payload and any(keyword in payload.lower() for keyword in 
+                                  ['insert', 'update', 'delete', 'drop', 'create', 'alter']):
+            indicators.append("Stacked query separators detected in payload")
+        
+        # Check for signs of successful stacked execution
+        stacked_success_patterns = [
+            r"Commands out of sync",
+            r"can't return a result set in this context",
+            r"multiple statements",
+            r"syntax error.*?near.*?;",
+        ]
+        
+        for pattern_str in stacked_success_patterns:
+            if re.search(pattern_str, response_text, re.IGNORECASE):
+                indicators.append(f"Stacked query indicator: {pattern_str}")
+        
+        if indicators:
+            confidence = min(0.5 + (len(indicators) * 0.2), 0.95)
+            
+            detection = Detection(
+                sqli_type=SQLiType.STACKED_QUERIES,
+                severity=Severity.CRITICAL,
+                confidence=confidence,
+                indicators=indicators,
+                context="Stacked queries allow multiple SQL statements execution",
+                remediation="Use parameterized queries. Disable multiple statement execution."
+            )
+            
+            self.detection_history.append(detection)
+            self.stats['stacked_queries'] += 1
+            
+            return detection
+        
+        return None
+    
+    def detect_waf(
+        self,
+        headers: Dict[str, str],
+        response_text: str,
+        status_code: Optional[int] = None,
+        cookies: Optional[Dict[str, str]] = None
+    ) -> WAFDetection:
+        """
+        Enhanced WAF detection with confidence scoring and bypass suggestions
+        """
+        detected_wafs = []
+        
+        # Normalize headers and cookies
+        headers_lower = {k.lower(): v.lower() for k, v in headers.items()}
+        cookies = cookies or {}
+        cookies_lower = {k.lower(): v.lower() for k, v in cookies.items()}
+        
+        for waf_name, signatures in WAF_SIGNATURES.items():
+            matches = []
+            
+            # Check headers
+            for sig in signatures.get('headers', []):
+                for header_key, header_val in headers_lower.items():
+                    if sig.lower() in header_key or sig.lower() in header_val:
+                        matches.append(f"Header: {sig}")
+            
+            # Check cookies
+            for sig in signatures.get('cookies', []):
+                for cookie_key, cookie_val in cookies_lower.items():
+                    if sig.lower() in cookie_key or sig.lower() in cookie_val:
+                        matches.append(f"Cookie: {sig}")
+            
+            # Check body patterns
+            for pattern in signatures.get('body_patterns', []):
+                if re.search(pattern, response_text, re.IGNORECASE):
+                    matches.append(f"Body pattern: {pattern}")
+            
+            # Check status codes
+            if status_code and status_code in signatures.get('status_codes', []):
+                matches.append(f"Status code: {status_code}")
+            
+            if matches:
+                detected_wafs.append({
+                    'name': waf_name,
+                    'matches': matches,
+                    'confidence': min(0.5 + (len(matches) * 0.2), 1.0)
+                })
+        
+        if detected_wafs:
+            # Sort by confidence and take the highest
+            best_match = max(detected_wafs, key=lambda x: x['confidence'])
+            
+            # Generate bypass suggestions
+            bypass_suggestions = self._generate_bypass_suggestions(best_match['name'])
+            
+            self.stats['waf_detected'] += 1
+            
+            return WAFDetection(
+                detected=True,
+                waf_name=best_match['name'],
+                confidence=best_match['confidence'],
+                signatures_matched=best_match['matches'],
+                bypass_suggestions=bypass_suggestions
+            )
+        
+        return WAFDetection(detected=False)
+    
+    def _generate_bypass_suggestions(self, waf_name: str) -> List[str]:
+        """Generate WAF-specific bypass suggestions"""
+        generic_suggestions = [
+            "Try case variation (e.g., SeLeCt)",
+            "Use inline comments (e.g., /**/)",
+            "Try alternative encodings (URL, Unicode, hex)",
+            "Use alternative syntax or functions",
+            "Fragment the payload across multiple parameters",
+        ]
+        
+        waf_specific = {
+            'ModSecurity': [
+                "Try whitespace alternatives (tabs, newlines)",
+                "Use scientific notation for numbers",
+                "Try nested encoding",
+            ],
+            'Cloudflare': [
+                "Rotate User-Agents",
+                "Use rare HTTP methods",
+                "Try HTTP parameter pollution",
+            ],
+            'AWS WAF': [
+                "Try polyglot payloads",
+                "Use concatenation instead of spaces",
+            ],
+        }
+        
+        return generic_suggestions + waf_specific.get(waf_name, [])
+    
+    def comprehensive_scan(
+        self,
+        response_text: str,
+        response_headers: Dict[str, str],
+        payload: str = "",
+        elapsed_time: float = 0.0,
+        status_code: Optional[int] = None,
+        cookies: Optional[Dict[str, str]] = None,
+        compare_response: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Run all detection methods and return comprehensive results
+        """
+        results = {
+            'detections': [],
+            'waf': None,
+            'risk_score': 0.0,
+            'summary': None
+        }
+        
+        # WAF Detection (run first as it impacts interpretation)
+        waf_detection = self.detect_waf(response_headers, response_text, status_code, cookies)
+        results['waf'] = waf_detection
+        
+        # Error-based detection
+        if error_detection := self.detect_error_based(response_text, response_headers):
+            results['detections'].append(error_detection)
+        
+        # Union-based detection
+        if union_detection := self.detect_union_based(response_text, payload):
+            results['detections'].append(union_detection)
+        
+        # Time-based detection
+        if elapsed_time > 0:
+            if time_detection := self.detect_time_based(elapsed_time, payload):
+                results['detections'].append(time_detection)
+        
+        # Stacked query detection
+        if stacked_detection := self.detect_stacked_queries(response_text, payload, response_headers):
+            results['detections'].append(stacked_detection)
+        
+        # Boolean-based detection (if comparison data provided)
+        if compare_response:
+            if boolean_detection := self.detect_boolean_based(
+                response_text,
+                compare_response.get('text', ''),
+                len(response_text),
+                len(compare_response.get('text', '')),
+                elapsed_time,
+                compare_response.get('time', 0.0)
+            ):
+                results['detections'].append(boolean_detection)
+        
+        # Calculate overall risk score
+        if results['detections']:
+            # Weight by severity and confidence
+            severity_weights = {
+                Severity.LOW: 0.25,
+                Severity.MEDIUM: 0.5,
+                Severity.HIGH: 0.75,
+                Severity.CRITICAL: 1.0
+            }
+            
+            weighted_scores = [
+                d.confidence * severity_weights[d.severity]
+                for d in results['detections']
+            ]
+            results['risk_score'] = min(sum(weighted_scores) / len(weighted_scores), 1.0)
+        
+        # Generate summary
+        results['summary'] = self._generate_summary(results)
+        
+        return results
+    
+    def _generate_summary(self, results: Dict) -> str:
+        """Generate a human-readable summary of findings"""
+        if not results['detections']:
+            return "No SQL injection vulnerabilities detected."
+        
+        detection_types = [d.sqli_type.value for d in results['detections']]
+        highest_severity = max(d.severity for d in results['detections'])
+        
+        summary = f"Detected {len(results['detections'])} SQL injection vector(s): {', '.join(detection_types)}. "
+        summary += f"Highest severity: {highest_severity.name}. "
+        summary += f"Overall risk score: {results['risk_score']:.2f}. "
+        
+        if results['waf'].detected:
+            summary += f"WAF detected: {results['waf'].waf_name} (confidence: {results['waf'].confidence:.2f})."
+        
+        return summary
+    
+    def get_statistics(self) -> Dict:
+        """Return detection statistics"""
+        return {
+            'total_scans': sum(self.stats.values()),
+            'detections_by_type': dict(self.stats),
+            'recent_detections': len(self.detection_history),
+            'detection_history': [
+                {
+                    'type': d.sqli_type.value,
+                    'severity': d.severity.name,
+                    'confidence': d.confidence,
+                    'timestamp': d.timestamp
+                }
+                for d in self.detection_history[-10:]  # Last 10
+            ]
+        }
+    
+    def reset_statistics(self):
+        """Reset all statistics and history"""
+        self.stats.clear()
+        self.detection_history.clear()
+        self.baseline_response_time = None
+        self.baseline_content_length = None
+
+
+# Example usage
+if __name__ == "__main__":
+    # Initialize detector
+    detector = AdvancedSQLiDetector(config={'debug': True})
+    
+    # Simulate a response with SQL error
+    test_response = """
+    <html>
+    <body>
+    Warning: mysql_fetch_array() expects parameter 1 to be resource, 
+    boolean given in /var/www/html/index.php on line 23
+    You have an error in your SQL syntax; check the manual that corresponds 
+    to your MySQL server version for the right syntax to use near '\'' at line 1
+    </body>
+    </html>
+    """
+    
+    test_headers = {
+        'Server': 'Apache',
+        'X-Powered-By': 'PHP/7.4',
+        'CF-Ray': '1234567890-LAX',
+        'CF-Cache-Status': 'DYNAMIC'
+    }
+    
+    test_payload = "' OR '1'='1"
+    
+    # Run comprehensive scan
+    results = detector.comprehensive_scan(
+        response_text=test_response,
+        response_headers=test_headers,
+        payload=test_payload,
+        elapsed_time=0.5,
+        status_code=200
+    )
+    
+    print("=== SQL Injection Detection Results ===")
+    print(f"\nSummary: {results['summary']}")
+    print(f"Risk Score: {results['risk_score']:.2f}")
+    
+    if results['waf'].detected:
+        print(f"\n[WAF] Detected: {results['waf'].waf_name}")
+        print(f"Confidence: {results['waf'].confidence:.2f}")
+        print("Bypass suggestions:")
+        for suggestion in results['waf'].bypass_suggestions[:3]:
+            print(f"  - {suggestion}")
+    
+    print(f"\n[Detections] Found {len(results['detections'])} vulnerability vector(s):")
+    for detection in results['detections']:
+        print(f"\n  Type: {detection.sqli_type.value}")
+        print(f"  Severity: {detection.severity.name}")
+        print(f"  Confidence: {detection.confidence:.2f}")
+        print(f"  Indicators: {detection.indicators[:2]}")
+        print(f"  Remediation: {detection.remediation}")
+    
+    # Show statistics
+    print("\n=== Statistics ===")
+    stats = detector.get_statistics()
+    print(f"Total scans: {stats['total_scans']}")
+    print(f"Detections by type: {stats['detections_by_type']}")

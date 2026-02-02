@@ -1,20 +1,13 @@
-# 🎯 VIP SQLi Scanner - Project Summary (v2.2)
+# 🎯 VIP SQLi Scanner - Project Summary (v3.0)
 
-## 📦 What You Have
+## 📦 Core Ecosystem
 
-### Two Versions
+### Professional Scanning Suite
 
-1. **Basic Version** (`sqli_scanner.py`)
-   - Original 30-second framework
-   - Batch scanning with exclusions
-   - Text-based output
-   - Good for simple scans
-
-2. **Advanced Version** (`sqli_scanner_advanced.py`) ⭐
-   - Modern Rich UI with colors and tables
-   - Multi-threading (5-10x faster)
-   - Time-based blind SQLi detection
-   - JSON/CSV/HTML export
+1. **Advanced Scanner Core** (`sqli_scanner_advanced.py`) ⭐
+   - **Boolean-Based Detection**: New high-precision logic engine.
+   - **ML Scoring**: Random Forest integrated to qualify findings.
+   - **SARIF v2.1.0**: Standardized reporting for enterprise workflows.
    - Interactive mode
    - Professional reporting with Jinja2
    - Resume capability & Proxy support
@@ -113,11 +106,13 @@ python sqli_scanner_advanced.py -i
 - ✅ Domain-based Result Filtering (`--filter`) ⭐
 - ✅ Comprehensive scan metrics ⭐
 
-### New in v2.2
-- 🧠 **ML Detection**: Reduces false positives with Random Forest.
-- 🔌 **Plugin System**: Extensible architecture (GraphQL, NoSQL support).
-- 📈 **Real-time Dashboard**: Visual scan progress via Web UI.
-- ⚙️ **Config Profiles**: Fast/Balanced/Stealth presets.
+### New in v3.0
+- 🛡️ **Boolean-Blind Detection**: High-precision logic comparison.
+- 🧠 **ML Scoring Engine**: Reduces noise with confidence metrics.
+- 📈 **Enterprise Dashboard v4.0**: Cyberpunk UI with GitHub SSO.
+- 📡 **Distributed Nodes**: Manage massive scan fleets.
+- 📄 **SARIF v2.1.0 Export**: Industry standard reporting.
+- ⚙️ **SSL Insecure Flag**: Skip verification for internal labs.
 
 ## 📊 Test Results
 
