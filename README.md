@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/logo.svg" width="200" alt="VIP SQLi Scanner Logo">
-</p>
-
 # 🔥 VIP SQLi Scanner - Advanced Edition v2.2
 
 <p align="center">
